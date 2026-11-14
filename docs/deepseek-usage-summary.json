@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-14",
+  "model": "deepseek-flash",
+  "calls": 15,
+  "successful_contracts": 15,
+  "prompt_tokens": 3960,
+  "completion_tokens": 1128,
+  "total_tokens": 5088,
+  "cached_input_tokens": 640,
+  "peak_price_estimate_usd": 0.00235344,
+  "conservative_local_budget_cny": 0.5088,
+  "latency_median_s": 2.981,
+  "latency_max_s": 4.033,
+  "pricing_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+  "note": "USD price estimate, not account bill. CNY figure is a conservative token budget at 100 CNY/million, not actual spending. Latencies are single sample calls with concurrency <=2, not load-test percentiles."
+}

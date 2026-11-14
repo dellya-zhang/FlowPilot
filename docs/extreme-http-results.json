@@ -1,0 +1,34 @@
+{
+  "provider": "mock",
+  "paid_calls": 0,
+  "transport": "real TCP/HTTP, uvicorn, Windows, SQLite",
+  "scenarios": {
+    "generate_50": {
+      "202": 1,
+      "409": 15,
+      "429": 34
+    },
+    "approve_50": {
+      "accepted": 1,
+      "conflicts": 49
+    },
+    "export_50": {
+      "success": 50,
+      "unique_artifacts": 1,
+      "sha256_valid": true
+    },
+    "sse_disconnect_40": "40 connections received event then disconnected",
+    "read_burst_500": {
+      "success": 500,
+      "max_connections": 32,
+      "wall_seconds": 2.292,
+      "client_p50_ms": 1328.75,
+      "client_p95_ms": 2088.74,
+      "note": "Includes client connection-pool waiting; finite local burst, not production QPS capacity."
+    },
+    "process_kill_restart": {
+      "status": "WAITING_APPROVAL",
+      "unique_variants": 3
+    }
+  }
+}

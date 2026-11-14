@@ -1,0 +1,29 @@
+{
+  "provider": "mock",
+  "paid_calls": 0,
+  "independent_service_processes": 3,
+  "scenarios": {
+    "simultaneous_bootstrap": "three servers ready, exactly 500 seeded customers",
+    "active_lease_renewal": "one owner after waiting longer than lease TTL",
+    "kill_and_takeover": {
+      "started_owners": 2,
+      "completed_executions": 1,
+      "unique_candidates": 3,
+      "recovery_seconds": 1.687
+    },
+    "cross_process_requests": {
+      "generate_requests": 60,
+      "accepted_generation": 1,
+      "approve_requests": 60,
+      "accepted_approval": 1,
+      "export_requests": 60,
+      "unique_artifacts": 1
+    },
+    "shared_budget_processes": {
+      "processes": 8,
+      "accepted": 2,
+      "rejected": 6,
+      "journal_events": 4
+    }
+  }
+}
