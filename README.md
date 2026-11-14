@@ -1,242 +1,224 @@
-> **最新状态（2026-11-14）**：53项离线测试通过；已完成同机3服务进程共享SQLite的租约续期、强杀接管与跨进程幂等验证，以及8进程共享费用名额竞争。见[多进程报告](docs/多进程验证报告.md)。下方早期“仅单进程”说明为历史局限，当前支持范围以多进程报告为准；不宣称跨主机生产级运行。
+# FlowPilot · 营销与客服 Agent 工作台
 
-# FlowPilot · Backend + Agent 工作台
+[![CI](https://github.com/dellya-zhang/temp/actions/workflows/ci.yml/badge.svg)](https://github.com/dellya-zhang/temp/actions/workflows/ci.yml)
+[![Interactive demo](https://img.shields.io/badge/demo-在线交互预览-94cb65)](https://dellya-zhang.github.io/temp/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](pyproject.toml)
 
-> Python 后端 + AI Agent 学习型开源工程：**营销方案生成 / 人工审批 / 试点交付 / 全量排重**，以及**智能客服意图路由 / 敏感操作确认**。
->
-> **项目性质：**独立演示项目（reference implementation），非企业内部生产代码，不涉及实际用户、真实投放、真实退款或客户数据。可用免费 Mock 模式完成全部本地业务流程。实时模型调用为可选项。
+**一个可以操作完整业务流程的 Backend + Agent 作品集项目。** 输入营销目标，生成候选、人工审批、开展双臂试点，最终下载排重名单；同时演示客服政策查询与敏感操作确认。
 
-## 主要功能
+**[打开在线交互演示 →](https://dellya-zhang.github.io/temp/)** · [用户操作指南](docs/用户操作指南.md) · [架构设计](docs/设计映射与架构.md) · [测试报告](#测试与验证)
 
-- **多阶段 Agent 工作流**：LangGraph `StateGraph` 构建 Planner → Executor → Critic，并基于规则执行文案检查。
-- **异步候选生成**：`asyncio.as_completed + Semaphore(2)` 并发生成 3 套方案，彼此独立，单候选失败不会中止其余候选。
-- **状态机与持久化**：`CREATED → GENERATING → WAITING_APPROVAL → PILOT_READY → PILOT_EXPORTED → COMPLETED`；数据库保存候选、任务状态和事件，启动时重试中断的生成任务。
-- **SSE 流式事件**：事件写入数据库、支持 `Last-Event-ID` 续接，轮询推送状态更新（适合演示，非高吞吐事件总线）。
-- **可复现名单交付**：模拟 500 个合成客户，固定种子抽样 25 人作为 pilot；导出 CSV，SHA256 校验；finalize 时排除 pilot 已触达客户。重复请求返回同一产物。
-- **业务规则护栏**：基于七个显式算子 `eq/ne/gt/gte/lt/lte/in` 的 DSL，不使用不安全 `eval`。
-- **客户支持工具路由**：FAQ、订单查询（模拟）、退款审核（人工确认，不执行真实支付操作）。
-- **Redis 限流（可选）**：Redis 原子 Lua 脚本固定时间窗口；本地 SQLite 模式自动跳过 Redis。
-- **存储双模式**：本地 SQLite + 文件（零基础设施），或 Docker Compose PostgreSQL + Redis + MinIO。
-- **A/B 实验**：互斥客群、转化回流去重、描述性转化率、人工晋级、排除两臂用户的全量交付。
-- **请求追踪**：X-Request-ID、Server-Timing 与访问日志；可选 ACCESS_TOKEN 共享令牌。
-- **测试及 CI**：含 pytest 端到端测试和 GitHub Actions。
+> 在线演示在浏览器模拟后端，数据仅保存在访问者本机，不调用模型或真实业务服务。完整 Python 后端、数据库、LangGraph 和可选 DeepSeek 接入包含在本仓库，可按下文启动。
 
-## 技术栈
+![FlowPilot 在线工作台](docs/在线演示桌面.png)
 
-| 层次 | 主要技术 | 用途 |
-| --- | --- | --- |
-| API | FastAPI、Pydantic | REST 与 OpenAPI 文档 |
-| Agent | LangGraph、可选 OpenAI API | Planner-Executor-Critic 图与结构化内容生成 |
-| 并发 | asyncio、Semaphore、asyncio tasks | 有界并发、异步任务执行 |
-| 数据 | SQLAlchemy 2、SQLite / PostgreSQL | 业务状态、候选、事件、合成客户 |
-| 缓存/限流 | Redis（Docker 模式） | 按客户端固定窗口限流 |
-| 文件 | 本地文件 / S3 兼容 MinIO | CSV 导出、SHA256 校验 |
-| 前端 | 原生 HTML/CSS/JS | 交互式演示（不需要 Node） |
-| 交付 | Docker Compose、pytest、GitHub Actions | 本地演示和持续集成 |
+## 可以体验什么
 
-## 快速开始
+| 用户操作 | 页面反馈 | 完整后端中的实现 |
+|---|---|---|
+| 填写活动目标、人群、预算 | 三套候选按完成顺序出现 | LangGraph、asyncio、有界并发、结构化输出 |
+| 审批某个候选 | 状态推进至可交付试点 | SQL 条件更新、人工确认 |
+| 导出试点、全量名单 | 下载 CSV，查看行数与哈希 | consent 过滤、固定种子抽样、试点排重、SHA256 |
+| 创建 A/B 双臂试点 | 展示互斥客群和转化情况 | 事件去重、描述性转化率、人工晋级 |
+| 记录模拟转化并晋级 | 胜出方案可全量交付 | 排除两臂所有试点用户 |
+| 咨询退款政策、申请退款 | 政策回答或确认/取消按钮 | 确定性路由、事实来源、待确认状态 |
+| 查看执行事件和历史任务 | 状态、候选和产物可追踪 | 数据库事件、SSE、Last-Event-ID |
 
-**需要 Python 3.11+，首次安装依赖需要联网。**
+这是独立演示工程，不包含企业内部源码、真实客户数据、真实投放或资金退款。客服当前采用规则路由；真实模型接入用于营销草稿生成。
+
+## 使用指南
+
+### 路线 A：单方案交付
+
+1. 在[在线工作台](https://dellya-zhang.github.io/temp/)输入：`为新会员介绍积分查询与专属客服权益，不提供额外折扣`。
+2. 选择人群与预算，点击 **创建并生成方案**，等待三套候选显示。
+3. 点击其中一套的 **审批此方案**，确认状态变为“可交付试点”。
+4. 点击 **导出试点名单**，再在产物区下载 `pilot` CSV。
+5. 点击 **全量排重交付**，下载 `full` CSV。全量名单不包含已参加试点的用户。
+
+### 路线 B：A/B 实验
+
+1. 创建新任务并生成候选，先不要点击普通审批。
+2. 点击 **创建双臂试点**，系统取前两套候选，划分互斥用户。
+3. 点击 **记录一名模拟转化**。重复点击会去重，不重复增加人数。
+4. 查看描述性转化率，再点击某一臂的 **人工选为胜出方案**。
+5. 点击 **全量排重交付**。这次会排除两臂试点用户，不只是胜出臂。
+
+转化回流是演示数据；没有显著性检验、自动观察窗口或真实营销效果结论。
+
+### 路线 C：客服确认
+
+1. 输入 `退款政策是什么`，查看政策说明，不产生待执行操作。
+2. 输入 `我要退款`，出现确认/取消按钮。
+3. 点击 **确认提交审核** 或 **取消申请**。确认只记录演示审核状态，不创建真实工单、不执行支付退款。
+4. 输入订单或物流问题，页面会说明当前未连接真实业务系统，不编造订单状态。
+
+在线数据保存在当前浏览器；点击顶部 **重置演示** 可从头体验。桌面与手机均可操作。
+
+<details>
+<summary>查看手机界面</summary>
+
+![手机界面](docs/在线演示手机.png)
+
+</details>
+
+## 快速启动完整后端
+
+需要 Python 3.11+。默认 Mock 模式无需模型密钥，也不需要 Docker、Redis 或 PostgreSQL。
 
 ```bash
+git clone https://github.com/dellya-zhang/temp.git
+cd temp
 python -m venv .venv
-# macOS / Linux:
-source .venv/bin/activate
-# Windows PowerShell:
-# .venv\Scripts\Activate.ps1
-pip install -e '.[dev]'
-cp .env.example .env     # Windows 可用 copy .env.example .env
-uvicorn app.main:app --reload
 ```
 
-- 前端演示：http://127.0.0.1:8000/
-- Swagger 文档：http://127.0.0.1:8000/docs
-- 健康检查：http://127.0.0.1:8000/api/v1/health
+Windows PowerShell：
 
-不设置 `OPENAI_API_KEY` 也能运行完整演示。默认 `AI_PROVIDER=mock`，输出由确定性模板生成，不应被描述为真实大模型推理结果。
+```powershell
+.venv\Scripts\python -m pip install -e ".[dev]"
+Copy-Item .env.example .env
+.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-### Docker 一键启动（PostgreSQL + Redis + MinIO）
+macOS / Linux：
+
+```bash
+.venv/bin/python -m pip install -e '.[dev]'
+cp .env.example .env
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+- 工作台：<http://127.0.0.1:8000/>
+- Swagger / OpenAPI：<http://127.0.0.1:8000/docs>
+- 存活检查：<http://127.0.0.1:8000/api/v1/health>
+- 本地静态预览：<http://127.0.0.1:8000/?demo=1>，用于体验浏览器模拟，绕过后端业务请求。
+
+完整模式任务、候选、事件及客服历史保存在 SQL 数据库；文件位于 `artifacts/`。在线静态模式用浏览器存储，两者的数据与实现不同。
+
+### 接入 DeepSeek
+
+仅修改本地 `.env`，不要在网页、README 或 Git 提交中填写真实 Key：
+
+```dotenv
+AI_PROVIDER=deepseek
+DEEPSEEK_API_KEY=your_local_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-flash
+LLM_MAX_TOKENS=600
+LLM_MAX_CALLS=18
+LLM_BUDGET_CNY=10
+```
+
+重启服务后，新任务会使用真实模型。可选 OpenAI 模式使用 `AI_PROVIDER=openai` 和对应 Key。密钥仅由后端读取，GitHub Pages 不需要任何密钥。
+
+费用机制是保守预算保护：请求前预留，返回 usage 后结算，未返回用量时保留预留；调用与费用名额记录在 `artifacts/llm-usage.jsonl`，跨同机进程使用文件锁。它不是供应商账单系统；删除日志会破坏历史预算连续性。
+
+### 同机多进程与可选基础设施
+
+```bash
+uvicorn app.main:app --workers 3
+```
+
+各进程必须共享数据库、对象目录及费用日志。SQL 租约和 owner 校验保护任务执行权；心跳续期、过期接管及定期恢复已通过同机独立进程验证。模型并发上限仍按 worker 计算。
 
 ```bash
 docker compose up --build -d
-docker compose logs -f api
-# 访问 http://localhost:8000
 ```
 
-可选 `.env` 中配置 `AI_PROVIDER=openai` 与 `OPENAI_API_KEY`，Docker Compose 将环境变量传给 API。第三方 API 产生费用，**不要把密钥提交到 GitHub**。
+Compose 提供 PostgreSQL、Redis 和 MinIO 配置。该组合尚未在本次环境实测，不将配置存在等同于集成验证。
 
-## 一次完整的 API 调用
-
-```bash
-# 1. 创建任务，获得 id
-curl -s -X POST http://localhost:8000/api/v1/campaigns \
- -H 'Content-Type: application/json' \
- -d '{"brief":"为新用户推出会员欢迎活动，介绍权益和服务内容","audience":"new","budget":10000}'
-
-# 2. 用上一步返回的 id 替换 CAMPAIGN_ID
-curl -X POST http://localhost:8000/api/v1/campaigns/CAMPAIGN_ID/generate
-
-# 3. 监听事件：任务完成后查询候选
-curl -N http://localhost:8000/api/v1/campaigns/CAMPAIGN_ID/stream
-curl http://localhost:8000/api/v1/campaigns/CAMPAIGN_ID/candidates
-
-# 4. 选择一个候选，用返回的 candidate id 替换 CANDIDATE_ID
-curl -X POST http://localhost:8000/api/v1/campaigns/CAMPAIGN_ID/approve \
- -H 'Content-Type: application/json' -d '{"candidate_id":"CANDIDATE_ID"}'
-
-# 5. 试点导出 → 全量排重导出
-curl -X POST http://localhost:8000/api/v1/campaigns/CAMPAIGN_ID/pilot
-curl -X POST http://localhost:8000/api/v1/campaigns/CAMPAIGN_ID/finalize
-
-# 6. 查看可下载的 CSV 产物与哈希
-curl http://localhost:8000/api/v1/campaigns/CAMPAIGN_ID/artifacts
-curl -OJ http://localhost:8000/api/v1/artifacts/ARTIFACT_ID/download
-```
-
-客服：
-
-```bash
-curl -X POST http://localhost:8000/api/v1/support/sessions
-curl -X POST http://localhost:8000/api/v1/support/sessions/SESSION_ID/messages \
- -H 'Content-Type: application/json' -d '{"content":"我想退款"}'
-curl -X POST 'http://localhost:8000/api/v1/support/sessions/SESSION_ID/confirm?approved=true'
-```
-
-## 模块结构
-
-```text
-app/
-  main.py                    # 应用生命周期，数据库初始化、合成数据、恢复
-  api/routes.py              # REST / SSE
-  agents/marketing.py        # LangGraph 三节点工作流
-  agents/provider.py         # Mock / OpenAI Provider
-  core/config.py             # 环境配置
-  db/base.py                 # SQLAlchemy AsyncSession
-  models/entities.py         # 关系模型：Campaign/Candidate/Event/Artifact/Support
-  schemas/contracts.py       # 输入输出契约
-  services/campaigns.py      # 并发任务、持久化事件、可复现名单导出
-  services/support.py        # 客服路由与人工确认
-  services/rules.py          # 七算子规则 DSL 与文案审核
-  services/storage.py        # 本地文件与 MinIO
-  services/limiter.py        # Redis 原子限流
-web/index.html               # 原生前端
-scripts/                     # 扩展示例脚本
- tests/                      # 集成与单元测试
-```
+## 架构与技术选择
 
 ```mermaid
 flowchart LR
-  Browser[Demo UI / API Client] --> API[FastAPI]
-  API --> DB[(SQLite / PostgreSQL)]
-  API --> Worker[asyncio campaign executor]
-  Worker --> Graph[LangGraph Planner → Executor → Critic]
-  Graph --> AI[Mock / OpenAI]
-  Worker --> DB
-  API --> Events[SSE event polling]
-  Events --> DB
-  API --> Rules[Rules DSL / Approval]
-  Rules --> Store[CSV + Local / MinIO]
-  API --> Redis[(Redis rate limit optional)]
+    UI[工作台 / REST Client] --> API[FastAPI + Pydantic]
+    API --> SQL[(SQLAlchemy / SQL)]
+    API --> Runner[后台执行 + 租约 / owner校验]
+    Runner --> Graph[LangGraph Planner → Executor → Critic]
+    Graph --> Provider[Mock / DeepSeek / OpenAI]
+    Provider --> Budget[同机跨进程费用账本]
+    Runner --> SQL
+    API --> Events[数据库事件 / SSE]
+    API --> Experiment[A/B分臂 / 回流去重 / 人工晋级]
+    Experiment --> Store[CSV / 本地或MinIO]
+    API --> Support[客服规则 / 政策事实 / 确认状态]
 ```
 
-## 运行测试
+| 层 | 技术 | 职责 |
+|---|---|---|
+| API | FastAPI、Pydantic | REST、校验、错误响应、OpenAPI |
+| 执行 | LangGraph、asyncio | 三节点工作流、候选并发、超时与取消 |
+| 数据 | SQLAlchemy、SQLite / PostgreSQL | 状态机、事务、唯一约束、租约与事件 |
+| 交付 | CSV、SHA256、本地文件 / S3 | 产物复用、完整性检查与人群排重 |
+| 交互 | HTML / CSS / JavaScript、SSE | 用户操作、候选、事件、历史与下载 |
+| 费用 | FileLock、原子文件替换 | 同机跨进程预算预留及结算 |
+| 可选 | Redis Lua、MinIO | 固定窗口限流、S3兼容存储 |
+
+业务状态与图状态分离：Campaign 保存跨请求阶段，LangGraph 组织一次生成。当前恢复是整次任务重跑，未配置图级持久化 checkpointer，不声称节点级续跑或外部调用 exactly-once。
+
+## API 速览
+
+完整请求体、响应和可执行示例见本地 `/docs`。
+
+| API | 用途 |
+|---|---|
+| `POST /api/v1/campaigns` | 创建营销任务 |
+| `POST /api/v1/campaigns/{id}/generate` | 触发候选生成 |
+| `GET /api/v1/campaigns/{id}/candidates` | 查询候选 |
+| `POST /api/v1/campaigns/{id}/approve` | 普通方案审批 |
+| `POST /api/v1/campaigns/{id}/pilot` | 普通试点导出 |
+| `POST /api/v1/campaigns/{id}/finalize` | 排重全量交付 |
+| `GET /api/v1/campaigns/{id}/stream` | SSE业务事件 |
+| `POST /api/v1/experiments` | 创建双臂实验 |
+| `POST /api/v1/experiments/{id}/feedback` | 转化回流，事件及用户去重 |
+| `POST /api/v1/experiments/{id}/promote` | 人工晋级 |
+| `POST /api/v1/support/sessions` | 创建客服会话 |
+| `POST /api/v1/support/sessions/{id}/messages` | 咨询或提出申请 |
+| `POST /api/v1/support/sessions/{id}/confirm` | 确认或取消待办 |
+
+## 测试与验证
 
 ```bash
 python -m pytest -q
+python scripts/extreme_http.py
+python scripts/multiprocess_check.py
 ```
 
-测试验证生成 / 审批 / pilot / full、重复请求复用产物、pilot 和 full 排重，以及客服敏感操作确认。CI 在可联网的 GitHub Actions 环境中安装完整依赖。
+上述入口使用隔离数据库、Mock 或故障传输，不消耗真实模型费用。浏览器测试另需 `playwright` 与 Edge，静态演示可执行 `python scripts/browser_static_demo.py`。
 
-## 已实现与生产化边界
+| 验证 | 结果与范围 |
+|---|---|
+| 自动回归 | 53项通过，含契约、并发、取消、超时、文件损坏及旧owner拒写 |
+| 真实模型 | 15次 DeepSeek 调用、5088 Token；营销接口与浏览器链路通过 |
+| 请求突发 | 500次本机HTTP读取全部成功；客户端排队耗时不代表服务端容量 |
+| 同机多进程 | 3服务进程续期/强杀接管/幂等通过；8进程竞争2费用名额，严格2接受6拒绝 |
+| 静态演示 | 普通HTTP静态服务器上完整操作通过，不访问API或模型服务器 |
 
-这是一个**可运行的教学/作品集级 MVP**，不是开箱可用于真实企业运营的生产系统：
+[真实模型报告](docs/DeepSeek联调报告.md) · [极限工况报告](docs/极限工况测试报告.md) · [多进程报告](docs/多进程验证报告.md) · [机器可读结果](docs/multiprocess-results.json)
 
-1. **任务执行仍在 API 进程内**：已实现SQL租约、心跳、owner写入校验与存活worker接管，并通过同机3进程验证；尚无外部队列、跨主机账本或外部调用精确一次语义。生产化仍需outbox、工具幂等键和跨主机协调。
-2. **没有账号与租户隔离**：可配置 ACCESS_TOKEN 共享令牌，仅作为单用户部署入口保护。禁止直接暴露公网处理敏感数据。正式部署必须增加 OAuth2/JWT、RBAC、审计日志、CORS 收敛、上传校验和 TLS。
-3. **不使用真实营销客户数据**：500 人为合成记录。没有真实营销触达、支付退款、外部工单与 ClickHouse 人群查询连接；这些是后续扩展点，不能当作已实现功能写进简历。
-4. **Checkpoint**：业务状态、产物与事件在 SQL 持久化。LangGraph 图本身未配置持久化 checkpointer；因此**不是**节点级精确续跑，而是生成任务重跑。真实业务应为 LangGraph 配置持久化 Checkpointer 并区分副作用节点。
-5. **模型质量评估**：Critic 是演示用确定性规则和启发式分数，不是可证明的转化率提升或真实模型评分。Mock 并不调用模型。
-6. **MinIO 和 Redis**：Docker 模式使用 MinIO 导出与 Redis 限流；不会假称使用了尚未实现的缓存一致性、分布式锁或消息队列。
-7. **数据库建表**：采用 `metadata.create_all` 便于首次演示；真实部署应添加 Alembic 版本化迁移。
-8. **固定窗口限流**：可用于功能演示，生产中应进一步按身份/租户限流并处理网关可信客户端 IP。
+`live_deepseek.py` 和 `browser_deepseek_e2e.py` 是明确的付费测试入口，不在 CI 自动执行。少量样本的字段契约成功率不等于模型业务质量或真实转化提升。
 
-## 适合面试展开的技术问题
+## 实现范围与后续方向
 
-- `asyncio.gather`、`Semaphore`、任务取消、异常传播、后台执行为什么要和 API 生命周期关联？
-- Agent 的 `thread_id` 与业务 `campaign_id` 各有什么作用？本项目当前为何只用了业务状态持久化而非 LangGraph Checkpointer？
-- PostgreSQL 在多人审批与并发导出时如何通过锁、乐观版本号、唯一约束保障幂等？为何 SQL 条件更新和事务串行化能处理竞争请求？为何不保证跨系统 exactly-once？
-- SSE 和 WebSocket 如何选型？`Last-Event-ID` 为什么需要事件持久化？
-- 什么是 at-least-once、exactly-once 语义？如何让外部工具调用在重试后不重复执行？
-- Redis 限流中的原子性与 TTL 为什么要通过 Lua 脚本实现？
+- **已实现**：前后端业务闭环、真实模型适配、SQL状态与事件、人工审批、实验排重、同机租约、费用保护、故障测试与交互预览。
+- **尚未实现**：生产账号/租户隔离、跨主机全局预算、真实订单/工单/退款、ClickHouse查询、统计显著性和图级Checkpoint。
+- **已知改进点**：信息不足时缺少完整澄清阶段；拒绝说明可能成为候选；Critic为启发式评分；关键词护栏存在误报。
+- **部署边界**：同机文件锁依赖共享路径；租约依赖同机时钟；副作用不保证精确一次；`create_all`不替代版本化迁移。
 
-## 发布须知
+[面试追问与回答](docs/面试追问与回答.md) · [极限工况面试补充](docs/极限工况面试补充.md)
 
-仓库采用 MIT License；无需任何真实密钥。发布前请根据真实代码和个人完成工作范围撰写项目经历。欢迎将生产化路线放入 GitHub Issues，而不要把尚未开发的能力标为已完成。
+## 目录
 
-
-## 本次工程补全
-
-- [设计映射及架构](docs/设计映射与架构.md)
-- [验收报告](docs/验收报告.md)
-- [演示、发布与运维](docs/演示与发布.md)
-- [桌面预览](docs/工作台预览.png) / [移动端预览](docs/移动端预览.png)
-
-### A/B 实验 API
-
-生成候选后、审批前：
-
-1. `POST /api/v1/experiments`，请求体 `{"campaign_id":"...","candidate_ids":["A","B"],"per_arm":10}`。
-2. 返回两臂互斥用户名单；`POST /api/v1/experiments/{id}/feedback`，请求体 `{"event_id":"唯一事件ID","customer_id":1,"candidate_id":"A"}`（用户必须属于该臂）。
-3. `GET /api/v1/experiments/{id}` 查看描述性转化率。
-4. `POST /api/v1/experiments/{id}/promote?candidate_id=A` 人工选取胜出方案。
-5. `POST /api/v1/campaigns/{campaign_id}/finalize` 导出排除两臂试点用户的剩余名单。
-
-本地实验没有自动观察窗口、统计显著性判断或真实投放归因。人工决定何时晋级。
-
-### 可复现安装
-
-Python 3.12 的本次验收版本见 requirements-lock.txt。跨版本推荐 pyproject.toml 的兼容范围。
-
-```bash
-pip install -r requirements-lock.txt
-pip install -e . --no-deps
+```text
+app/agents/       工作流与模型Provider
+app/api/          营销、实验与客服API
+app/services/     租约、预算、规则、存储及业务逻辑
+app/models/       业务表与执行租约
+web/              真实后端工作台及显式浏览器模拟适配器
+scripts/          HTTP、多进程、浏览器与可选付费评测
+ tests/           隔离自动测试
+ docs/            操作指南、架构、测试结果和截图
+.github/workflows/ CI与静态预览发布
 ```
 
-本地默认单worker；同机多worker支持范围见多进程报告。可选令牌在 `.env` 设置 `ACCESS_TOKEN`，前端“访问令牌”输入同值。受保护 API 必须带 `Authorization: Bearer ...`；令牌模式前端使用轮询（原生 EventSource 不能附加 Authorization）。未配置令牌时前端使用 SSE。共享令牌不等价于用户认证和数据隔离。
-
-### 并发与事务
-
-生成和审批使用 `UPDATE ... WHERE status = expected` 检查 rowcount，竞争失败返回 409。导出与客服会话在事务开头执行无值变化的 UPDATE 取得数据库写锁/行锁，再读取当前状态；唯一约束作为末端保护。SQLite 会串行化写事务，PostgreSQL 可按行并发。不要在生成任务的模型网络等待中持有导出事务锁。
-
-CSV 对象先落存储、后提交数据库，故崩溃可能遗留孤立文件；不承诺存储与数据库分布式原子事务。启动恢复是整次生成重试，不是 LangGraph 节点精确续跑。
-
-
-## DeepSeek 真实联调（2026-11-14）
-
-已接入AI_PROVIDER=deepseek，配置见.env.example。15次真实Flash生成、5088Token，API及浏览器工作流通过，离线测试23项通过。
-
-- [真实模型联调及费用](docs/DeepSeek联调报告.md)
-- [面试追问与回答](docs/面试追问与回答.md)
-- [用量摘要](docs/deepseek-usage-summary.json)
-
-离线测试不调用真实模型。scripts/live_deepseek.py和scripts/browser_deepseek_e2e.py是付费测试入口，不在CI自动执行。检查已有预算审计后再运行。预算日志为artifacts/llm-usage.jsonl，不含凭据或正文。不要删除日志重置本次授权；单worker预算不能用于多副本全局计费。
-
-
-## 极限工况回归（2026-11-14）
-
-当前离线回归 **50 passed**；新增本机真实HTTP突发、40次SSE断连、实际工作进程强杀恢复，以及故障注入。详细证据及未解决风险：
-
-- [极限工况测试报告](docs/极限工况测试报告.md)
-- [机器可读HTTP结果](docs/extreme-http-results.json)
-- [极限工况面试补充](docs/极限工况面试补充.md)
-
-新增单进程全局模型并发槽、原子请求准入预留、取消子任务回收、受限退出等待、文件哈希校验、请求/响应大小限制。仍不能多副本运行；预算锁不跨进程，线程/远程调用取消不保证外部副作用停止。
-
-默认MODEL_CONCURRENCY=4、MAX_ACTIVE_CAMPAIGNS=16、CANDIDATE_TIMEOUT_SECONDS=45、SHUTDOWN_GRACE_SECONDS=5。过载返回429，已知依赖故障返回503并提示重试。64KiB请求体上限与10秒读取总时限是当前JSON接口的默认保护。
-
-
-## 同机多进程
-
-新增数据库租约、心跳、owner写入校验、存活worker自动接管与同机跨进程费用锁。运行 `python scripts/multiprocess_check.py` 可复现，不调用收费模型。部署时需共享数据库、artifact目录和费用日志；MODEL_CONCURRENCY为每worker上限，跨主机需另行设计。
-
-新增配置：LEASE_SECONDS=15、RECOVERY_POLL_SECONDS=2。费用日志使用独立锁文件，预算不会因服务重启重置。共享文件锁仅用于本机/已验证的本地共享卷。
+保留仓库原有 [LICENSE](LICENSE)。欢迎基于实际实现提交问题与改进；请勿提交密钥、真实客户名单或私人简历材料。
