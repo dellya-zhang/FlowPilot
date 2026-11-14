@@ -27,6 +27,7 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.tasks = set()
+    app.state.local_probe_lock = asyncio.Lock()
     app.state.admission_lock = asyncio.Lock()
     app.state.pending_admissions = 0
     app.state.model_slots = asyncio.Semaphore(get_settings().model_concurrency)
@@ -93,9 +94,9 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="Agent Backend Platform", version="0.1.0", lifespan=lifespan,
+app = FastAPI(title="FlowPilot · 智能运营与 Agent 工作台", version="0.1.0", lifespan=lifespan,
               description="Marketing workflow + support rules demo; mock LLM by default, synthetic customers only.")
-app.add_middleware(CORSMiddleware, allow_origins=get_settings().cors_origins.split(","),
+app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 from app.api.experiments import router as experiment_router
 @app.middleware("http")
@@ -109,6 +110,11 @@ async def request_context(request, call_next):
                                 headers={"X-Request-ID": request_id})
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    if request.url.path.startswith("/api/v1/local-model"):
+        response.headers["Cache-Control"] = "no-store"
     response.headers["Server-Timing"] = f"app;dur={(time.perf_counter()-started)*1000:.2f}"
     logging.getLogger("access").info("request_id=%s method=%s path=%s status=%s", request_id,
                                    request.method, request.url.path, response.status_code)
@@ -125,5 +131,7 @@ app.add_middleware(RequestBodyLimit)
 
 app.include_router(router)
 app.include_router(experiment_router)
+from app.api.local_model import router as local_model_router
+app.include_router(local_model_router)
 
 app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "web"), html=True), name="demo")

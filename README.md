@@ -1,4 +1,4 @@
-# FlowPilot · 营销与客服 Agent 工作台
+# FlowPilot · 智能运营与 Agent 工作台
 
 [![CI](https://github.com/dellya-zhang/temp/actions/workflows/ci.yml/badge.svg)](https://github.com/dellya-zhang/temp/actions/workflows/ci.yml)
 [![Interactive demo](https://img.shields.io/badge/demo-在线交互预览-94cb65)](https://dellya-zhang.github.io/temp/)
@@ -6,11 +6,20 @@
 
 **一个可以操作完整业务流程的 Backend + Agent 作品集项目。** 输入营销目标，生成候选、人工审批、开展双臂试点，最终下载排重名单；同时演示客服政策查询与敏感操作确认。
 
-**[打开在线交互演示 →](https://dellya-zhang.github.io/temp/)** · [用户操作指南](docs/用户操作指南.md) · [架构设计](docs/设计映射与架构.md) · [测试报告](#测试与验证)
+**[打开白色交互工作台 →](https://dellya-zhang.github.io/temp/)** · [用户操作指南](docs/用户操作指南.md) · [架构设计](docs/设计映射与架构.md) · [测试报告](#测试与验证)
 
 > 在线演示在浏览器模拟后端，数据仅保存在访问者本机，不调用模型或真实业务服务。完整 Python 后端、数据库、LangGraph 和可选 DeepSeek 接入包含在本仓库，可按下文启动。
 
 ![FlowPilot 在线工作台](docs/在线演示桌面.png)
+
+## 本地模型连接
+
+白色工作台右侧新增“模型连接”：本地访问时显示Provider、模型、调用次数与保守预算，并可显式发起一次固定提示词测试。在线GitHub Pages不连接访客的localhost，测试按钮保持关闭。
+
+- 模型Key只由本机.env读取；浏览器没有模型Key输入框，诊断响应不返回Key。
+- 本机后端中转DeepSeek仍会把提示词发到云端；选择AI_PROVIDER=local才连接本机推理服务。
+- 诊断接口限制回环来源、Host及同源Origin；POST还需专用头，不接受浏览器传入URL、模型、Key或提示词。
+- [完整本地接入说明](docs/本地模型接入.md)。
 
 ## 可以体验什么
 
@@ -188,7 +197,7 @@ python scripts/multiprocess_check.py
 
 | 验证 | 结果与范围 |
 |---|---|
-| 自动回归 | 53项通过，含契约、并发、取消、超时、文件损坏及旧owner拒写 |
+| 自动回归 | 64项通过，含契约、并发、取消、超时、文件损坏及旧owner拒写 |
 | 真实模型 | 15次 DeepSeek 调用、5088 Token；营销接口与浏览器链路通过 |
 | 请求突发 | 500次本机HTTP读取全部成功；客户端排队耗时不代表服务端容量 |
 | 同机多进程 | 3服务进程续期/强杀接管/幂等通过；8进程竞争2费用名额，严格2接受6拒绝 |

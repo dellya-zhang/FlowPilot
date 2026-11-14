@@ -129,6 +129,6 @@
     const reset=document.createElement('button');reset.textContent='重置演示';reset.onclick=()=>{for(const c of db.campaigns)sessionStorage.removeItem('exp-'+c.id);localStorage.removeItem(key);sessionStorage.removeItem('sid');location.reload();};
     const guide=document.createElement('a');guide.href='https://github.com/dellya-zhang/temp#使用指南';guide.textContent='完整项目与使用指南 ↗';
     banner.append(text,reset,guide);document.querySelector('header').after(banner);
-    const api=document.querySelector('header a');api.href='https://github.com/dellya-zhang/temp#快速启动完整后端';api.textContent='启动完整后端 ↗';
+    const api=document.getElementById('apiLink');api.href='https://github.com/dellya-zhang/temp#快速启动完整后端';api.textContent='启动完整后端 ↗';
   });
 })();

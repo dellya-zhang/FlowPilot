@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     llm_budget_cny: float = 10
     llm_audit_path: str = "./artifacts/llm-usage.jsonl"
     openai_api_key: str = ""
+    local_model_base_url: str = "http://127.0.0.1:11434/v1"
+    local_model_name: str = "local-model"
+    local_model_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
     redis_url: str = ""
     s3_endpoint_url: str = ""
@@ -30,7 +33,7 @@ class Settings(BaseSettings):
     s3_secret_key: str = "demosecret"
     s3_bucket: str = "agent-artifacts"
     artifact_dir: str = "./artifacts"
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = ""
 
 
 @lru_cache

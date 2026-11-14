@@ -1,0 +1,12 @@
+{
+  "http_status": 200,
+  "ok": true,
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "calls_before": 15,
+  "calls_after": 16,
+  "elapsed_ms": 2697,
+  "budget_upper_cny": 0.532,
+  "credentials_in_browser": false,
+  "prompt": "fixed synthetic connectivity prompt; no user form or customer data"
+}

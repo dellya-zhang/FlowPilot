@@ -27,11 +27,15 @@ with tempfile.TemporaryDirectory() as temp:
                 time.sleep(.05)
         script=root/'scripts/browser_e2e.py'
         content=script.read_text('utf-8').replace('127.0.0.1:8017',f'127.0.0.1:{port}')
-        content=content.replace(' browser.close()', ''' page.set_viewport_size({'width':1440,'height':1100})
+        content=content.replace(' browser.close()', ''' page.wait_for_function("() => !document.getElementById('testModel').disabled")
+ page.click('#testModel')
+ page.wait_for_function("() => document.getElementById('modelResult').textContent.includes('连接成功')")
+ print('Local model status and explicit mock connection probe passed')
+ page.set_viewport_size({'width':1440,'height':1100})
  page.fill('#brief','<img src=x onerror="window.xssProbe=1"> 会员权益介绍')
  page.click('#create')
  try:
-  page.wait_for_function("document.querySelectorAll('.candidate').length===3 && document.getElementById('status').textContent.includes('等待人工审批')",timeout=10000)
+  page.wait_for_function("() => document.querySelectorAll('.candidate').length===3 && document.getElementById('status').textContent.includes('等待人工审批')",timeout=10000)
  except Exception:
   print('XSS diagnostic:',page.locator('#status').inner_text(),page.locator('#notice').inner_text(),page.locator('#candidates').inner_text())
   raise
