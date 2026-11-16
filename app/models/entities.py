@@ -108,3 +108,16 @@ class ExecutionLease(Base):
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), primary_key=True)
     owner: Mapped[str] = mapped_column(String(32))
     expires_at: Mapped[float] = mapped_column(Float, index=True)
+
+
+class PlanningContext(Base):
+    """Separate table keeps existing campaign databases compatible."""
+    __tablename__ = "planning_contexts"
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class CandidatePlan(Base):
+    __tablename__ = "candidate_plans"
+    candidate_id: Mapped[str] = mapped_column(ForeignKey("candidates.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)

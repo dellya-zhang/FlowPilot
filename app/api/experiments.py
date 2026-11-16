@@ -7,6 +7,7 @@ from sqlalchemy import select, update, func
 from app.db.base import session_dep
 from app.models.entities import Campaign, Candidate, Customer, Experiment, Conversion
 from app.services.campaigns import require_campaign, emit
+from app.services.planning import audience_pool, planning_input
 
 router = APIRouter(prefix="/api/v1/experiments", tags=["experiments"])
 
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/api/v1/experiments", tags=["experiments"])
 class ExperimentInput(BaseModel):
     campaign_id: str
     candidate_ids: list[str] = Field(min_length=2, max_length=2)
-    per_arm: int = Field(default=10, ge=1, le=50)
+    per_arm: int | None = Field(default=None, ge=1, le=50)
 
 
 class Feedback(BaseModel):
@@ -44,14 +45,14 @@ async def create(data: ExperimentInput, db=Depends(session_dep)):
         Candidate.campaign_id == campaign.id, Candidate.id.in_(ids)))).all())
     if len(ids) != 2 or len(candidates) != 2:
         raise HTTPException(422, "Choose two distinct candidates from this campaign")
-    query = select(Customer.id).where(Customer.consent.is_(True)).order_by(Customer.id)
-    if campaign.audience != "all":
-        query = query.where(Customer.segment == campaign.audience)
-    customers = list((await db.scalars(query)).all())
-    if len(customers) < 2 * data.per_arm:
+    rows, _ = await audience_pool(db, campaign)
+    customers = [c.id for c in rows]
+    planning = await planning_input(db, campaign.id)
+    per_arm = data.per_arm or (max(1, __import__('math').ceil(len(customers)*planning['pilot_ratio']/2)) if planning else 10)
+    if len(customers) < 2 * per_arm:
         raise HTTPException(422, "Insufficient consenting audience")
     random.Random(int(hashlib.sha256(campaign.id.encode()).hexdigest(), 16)).shuffle(customers)
-    arms = {cid: customers[i * data.per_arm:(i + 1) * data.per_arm] for i, cid in enumerate(data.candidate_ids)}
+    arms = {cid: customers[i * per_arm:(i + 1) * per_arm] for i, cid in enumerate(data.candidate_ids)}
     exp = Experiment(campaign_id=campaign.id, arms=arms)
     db.add(exp)
     await db.commit()

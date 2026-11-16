@@ -12,6 +12,9 @@ with sync_playwright() as p:
  page.click('#create')
  page.wait_for_selector('.candidate',timeout=20000)
  page.wait_for_function("() => document.querySelectorAll('.candidate').length===3")
+ assert page.locator('.strategy-preview').count()==3
+ page.locator('.strategy-preview details').first.locator('summary').first.click()
+ assert '权益依据' in page.locator('.strategy-preview').first.inner_text()
  page.click('#experiment')
  page.wait_for_selector('#experimentView button')
  assert page.locator('.candidate button:enabled').count() == 0
