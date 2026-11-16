@@ -27,6 +27,7 @@
   document.querySelectorAll('[data-scenario]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.scenario === 'support') { location.hash = 'support'; byId('message').focus(); return; }
     const [brief, audience, hint] = scenarios[b.dataset.scenario];
+    byId('planIntent').value=b.dataset.scenario==='experiment'?'reactivation':'education';
     byId('brief').value = brief; byId('audience').value = audience;
     byId('brief').dispatchEvent(new Event('input'));
     byId('scenarioHint').textContent = hint;
@@ -36,7 +37,8 @@
   window.addEventListener('campaign-view', ({detail:c}) => {
     const experiment = !!sessionStorage.getItem('exp-' + c.id);
     const steps = {
-      CREATED: ['准备生成', '点击创建并生成方案，启动候选生成。'],
+      NEEDS_CLARIFICATION: ['需要补充策略信息', '在左侧填写已确认权益，保存补充信息后，继续生成当前计划。'],
+      CREATED: ['准备生成', '点击继续生成当前计划；创建成功但启动失败的任务也可在这里继续。'],
       GENERATING: ['正在生成候选', '候选会陆续出现。等待生成完成后，再选择审批或 A/B 路线。'],
       WAITING_APPROVAL: experiment ? ['下一步 · 观察双臂反馈并人工晋级', '在下方实验区记录模拟转化，再选择胜出方案。普通审批已关闭。'] : ['下一步 · 选择决策路线', '直接审批一套候选，或在下方创建 A/B 双臂试点。选择后不能切换路线。'],
       PILOT_READY: ['下一步 · 导出试点名单', '方案已确认。先导出小范围试点，再进行全量排重交付。'],

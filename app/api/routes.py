@@ -6,12 +6,13 @@ from fastapi.responses import StreamingResponse, Response
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import session_dep, SessionLocal
-from app.models.entities import Campaign, Candidate, Event, Artifact, SupportSession, Experiment
+from app.models.entities import Campaign, Candidate, Event, Artifact, SupportSession, Experiment, PlanningContext, CandidatePlan
 from app.schemas.contracts import (CampaignCreate, CampaignView, CandidateView, Approval,
-                                   ArtifactView, SupportMessageInput, SupportDecision)
+                                   ArtifactView, SupportMessageInput, SupportDecision, PlanningInput)
 from app.services.campaigns import generate_candidates, export_audience, require_campaign, emit, transition
 from app.services.storage import get_verified_blob
 from app.services.support import send_message, confirm_action
+from app.services.planning import planning_input, missing_inputs, audience_pool
 from app.services.limiter import limit
 from app.services.support import history
 from app.core.config import get_settings
@@ -28,8 +29,15 @@ async def health():
 async def create_campaign(data: CampaignCreate, db: AsyncSession = Depends(session_dep)):
     if data.budget > 100_000:
         raise HTTPException(422, "Budget exceeds demo policy; no model call was made")
-    campaign = Campaign(**data.model_dump())
+    values = data.model_dump(exclude={'planning'})
+    planning = data.planning.model_dump() if data.planning else None
+    campaign = Campaign(**values)
+    if planning and missing_inputs(planning):
+        campaign.status = 'NEEDS_CLARIFICATION'
     db.add(campaign)
+    await db.flush()
+    if planning is not None:
+        db.add(PlanningContext(campaign_id=campaign.id, data=planning))
     await db.commit()
     await db.refresh(campaign)
     return campaign
@@ -66,17 +74,54 @@ async def start_generate(campaign_id: str, request: Request, db: AsyncSession = 
         campaign = await require_campaign(db, campaign_id)
         if campaign.status != "CREATED":
             raise HTTPException(409, f"Cannot generate in {campaign.status}")
+        planning = await planning_input(db, campaign_id)
+        if planning:
+            audience, _ = await audience_pool(db, campaign)
+            if not audience:
+                raise HTTPException(422, '没有符合条件且同意触达的用户，请调整人群条件')
+            if len(audience)*planning['unit_cost_cny'] > campaign.budget:
+                raise HTTPException(422, '预计触达费用超过活动预算，请调整单价或人群条件；未调用模型')
         await transition(db, campaign_id, "CREATED", "GENERATING", event_name="generation.queued")
         task = asyncio.create_task(generate_candidates(campaign.id, request.app.state.model_slots))
         request.app.state.track_task(task)
         return {"campaign_id": campaign.id, "status": "GENERATING"}
 
 
+@router.get("/campaigns/{campaign_id}/planning")
+async def get_planning(campaign_id: str, db: AsyncSession = Depends(session_dep)):
+    campaign = await require_campaign(db, campaign_id)
+    data = await planning_input(db, campaign_id)
+    exp = await db.scalar(select(Experiment).where(Experiment.campaign_id == campaign_id))
+    return {"input":data, "questions":missing_inputs(data) if data else [],
+            "editable":campaign.status in ('CREATED','NEEDS_CLARIFICATION'),
+            "experiment_id":exp.id if exp else None}
+
+
+@router.put("/campaigns/{campaign_id}/planning", response_model=CampaignView)
+async def clarify_planning(campaign_id: str, data: PlanningInput, db: AsyncSession = Depends(session_dep)):
+    await db.execute(update(Campaign).where(Campaign.id == campaign_id).values(updated_at=Campaign.updated_at))
+    campaign = await require_campaign(db, campaign_id)
+    if campaign.status not in ('CREATED','NEEDS_CLARIFICATION'):
+        raise HTTPException(409, 'Planning input is frozen after generation starts')
+    row = await db.get(PlanningContext, campaign_id)
+    if row:
+        row.data = data.model_dump()
+    else:
+        db.add(PlanningContext(campaign_id=campaign_id, data=data.model_dump()))
+    campaign.status = 'NEEDS_CLARIFICATION' if missing_inputs(data.model_dump()) else 'CREATED'
+    await emit(db, campaign_id, 'planning.updated', {'status':campaign.status})
+    return campaign
+
+
 @router.get("/campaigns/{campaign_id}/candidates", response_model=list[CandidateView])
 async def candidates(campaign_id: str, db: AsyncSession = Depends(session_dep)):
     await require_campaign(db, campaign_id)
-    return list((await db.scalars(select(Candidate).where(Candidate.campaign_id == campaign_id)
+    rows = list((await db.scalars(select(Candidate).where(Candidate.campaign_id == campaign_id)
                                  .order_by(Candidate.variant))).all())
+    plans = {p.candidate_id:p.data for p in (await db.scalars(select(CandidatePlan).join(Candidate, Candidate.id == CandidatePlan.candidate_id).where(Candidate.campaign_id == campaign_id))).all()}
+    for row in rows:
+        row.plan_data = plans.get(row.id)
+    return rows
 
 
 @router.get("/campaigns/{campaign_id}/events")

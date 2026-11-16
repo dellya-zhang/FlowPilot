@@ -12,6 +12,14 @@
   const event = (cid,name,payload={}) => (db.events[cid] ||= []).push({id:db.next++,name,payload});
   const people = audience => Array.from({length:500},(_,i)=>({id:i+1,segment:['new','active','dormant'][i%3],region:['north','south','east','west'][i%4]})).filter(p=>p.id%9!==0&&(audience==='all'||p.segment===audience));
   const hash = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+  function rawPool(c){return people(c.audience).filter(p=>!c.planning||c.planning.region==='all'||p.region===c.planning.region);}
+  function pool(c){const rows=rawPool(c);return c.planning?.enable_holdout?rows.slice(Math.floor(rows.length*c.planning.holdout_ratio)):rows;}
+  function demoPlan(c,variant){
+    if(!c.planning)return null;
+    const p=c.planning,count=pool(c).length,focus=['权益说明','使用场景','参与指引'][variant-1];
+    const rules=[{field:'consent',op:'eq',value:true}];if(c.audience!=='all')rules.push({field:'segment',op:'eq',value:c.audience});if(p.region!=='all')rules.push({field:'region',op:'eq',value:p.region});
+    return {schema_version:1,revision:1,planning_source:'browser_simulation',goal:{intent:p.intent,description:c.brief,budget_cny:c.budget},segment:{dsl:{all:rules},estimated_size:rawPool(c).length,treatment_size:count,holdout_size:rawPool(c).length-count},strategy:{channel:p.channel,message_focus:focus,rationale:'比较表达角度，不预测转化效果。',execution_mode:'handoff_only',pilot_schedule:[{round:1,ratio:p.pilot_ratio,label:'试点'},{round:2,ratio:1-p.pilot_ratio,label:'剩余全量'}],ab_experiment:{test_ratio:p.pilot_ratio,window_days:p.window_days,window_enforced:false}},offer_strategy:{verified_benefits:p.known_benefits,source:'operator_input',additional_incentives:false},cost_estimate:{unit_cost_cny:p.unit_cost_cny,source:p.unit_cost_cny?'operator_input':'not_provided',total_cny:p.unit_cost_cny?Math.round(count*p.unit_cost_cny*10000)/10000:null},compliance:{decision:'PASS'},trace:['goal_understanding','segment_selection','strategy_planning','planning_compliance','content_preview','content_compliance','plan_output'],limitations:['浏览器模板模拟，不运行真实 LangGraph 或模型','渠道、观察窗口与节奏只作交接参数，不执行投放']};
+  }
   const originalFetch = window.fetch.bind(window);
   const headers = {'Content-Type':'application/json'};
   const response = (data,status=200) => new Response(JSON.stringify(data),{status,headers});
@@ -22,17 +30,25 @@
       if(!cid&&method==='GET')return response([...db.campaigns].reverse());
       if(!cid&&method==='POST') {
         if(!data.brief?.trim()||data.brief.trim().length<5||data.brief.length>2000||data.budget<100||data.budget>100000)error(422,'请输入5–2000字活动目标，预算100–100000元');
-        const c={id:id(),brief:data.brief.trim(),audience:data.audience,budget:data.budget,status:'CREATED',selected_candidate_id:null};
+        const c={id:id(),brief:data.brief.trim(),audience:data.audience,budget:data.budget,status:data.planning&&!data.planning.known_benefits.trim()?'NEEDS_CLARIFICATION':'CREATED',selected_candidate_id:null,planning:data.planning||null};
         db.campaigns.push(c);save();return response(c,201);
       }
       const c=db.campaigns.find(c=>c.id===cid);if(!c)error(404,'任务不存在，请重新选择');
       if(!action&&method==='GET')return response(c);
+      if(action==='planning'&&method==='GET')return response({input:c.planning||null,questions:c.status==='NEEDS_CLARIFICATION'?['请填写已经确认的权益或服务；无优惠时请明确说明。']:[],editable:['CREATED','NEEDS_CLARIFICATION'].includes(c.status),experiment_id:Object.values(db.experiments).find(e=>e.campaign_id===cid)?.id||null});
+      if(action==='planning'&&method==='PUT'){
+        if(!['CREATED','NEEDS_CLARIFICATION'].includes(c.status))error(409,'开始生成后策略输入已冻结');
+        if(!Number.isFinite(data.pilot_ratio)||data.pilot_ratio<.05||data.pilot_ratio>.3||!Number.isFinite(data.unit_cost_cny)||data.unit_cost_cny<0||data.window_days<3||data.window_days>14)error(422,'请检查试点比例、单价和观察天数');
+        c.planning=data;c.status=data.known_benefits.trim()?'CREATED':'NEEDS_CLARIFICATION';save();return response(c);
+      }
       if(action==='generate'&&method==='POST') {
         if(c.status!=='CREATED')error(409,'任务已开始生成');
+        if(c.planning&&(!pool(c).length||pool(c).length*c.planning.unit_cost_cny>c.budget))error(422,'预算不足或符合条件的人群为空；未调用模型');
         c.status='GENERATING';event(cid,'generation.queued');save();
+        if(c.planning&&(!pool(c).length||pool(c).length*c.planning.unit_cost_cny>c.budget)){c.status='FAILED';event(cid,'generation.failed',{error:'预算不足或人群为空'});save();return response({status:c.status},202);}
         [1,2,3].forEach((variant,i)=>setTimeout(()=>{
           const mode=['权益说明','服务场景','自愿参与'][i];
-          const x={id:id(),variant,title:mode+' · '+c.audience+' 客群',message:c.brief+'。本方案从'+mode+'角度介绍已知信息，不添加未声明的优惠。',reasoning:'浏览器模板模拟；完整后端可接入真实模型。',score:78-i*2,segment:c.audience};
+          const x={id:id(),variant,title:mode+' · '+c.audience+' 客群',message:(c.planning?.known_benefits||c.brief)+'。本方案从'+mode+'角度介绍已知信息，不添加未声明的优惠。',reasoning:'浏览器模板模拟；完整后端可接入真实模型。',score:c.planning?.unit_cost_cny?100:80,segment:c.audience,plan_data:demoPlan(c,variant)};
           (db.candidates[cid] ||= []).push(x);event(cid,'candidate.ready',{variant,candidate_id:x.id});
           if(variant===3){c.status='WAITING_APPROVAL';event(cid,'generation.finished',{successes:3});}save();
         },350+i*350));
@@ -54,8 +70,8 @@
         if(action==='finalize'&&!['PILOT_EXPORTED','COMPLETED'].includes(c.status))error(409,'请先完成试点或晋级');
         let a=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind===kind);
         if(!a) {
-          let rows=people(c.audience),pilot=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind==='pilot');
-          if(kind==='pilot')rows=rows.slice(0,25);
+          let rows=pool(c),pilot=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind==='pilot');
+          if(kind==='pilot')rows=rows.slice(0,c.planning?Math.max(1,Math.ceil(rows.length*c.planning.pilot_ratio)):25);
           else {const exposed=new Set(exp?Object.values(exp.arms).flat():pilot?.users||[]);rows=rows.filter(p=>!exposed.has(p.id));}
           const csv='\ufeffcustomer_id,segment,region\r\n'+rows.map(p=>[p.id,p.segment,p.region].join(',')).join('\r\n');
           a={id:id(),campaign_id:cid,kind,row_count:rows.length,sha256:await hash(csv),csv,users:rows.map(p=>p.id)};db.artifacts[a.id]=a;
@@ -74,8 +90,8 @@
         if(!c||c.status!=='WAITING_APPROVAL'||Object.values(db.experiments).some(e=>e.campaign_id===c.id))error(409,'该任务不能新建实验');
         const ids=data.candidate_ids,valid=new Set((db.candidates[c.id]||[]).map(x=>x.id));
         if(new Set(ids).size!==2||ids.some(x=>!valid.has(x)))error(422,'请选择当前任务的两个不同候选');
-        const users=people(c.audience).slice(0,20).map(p=>p.id),eid=id();
-        db.experiments[eid]={id:eid,campaign_id:c.id,status:'RUNNING',winner:null,arms:{[ids[0]]:users.slice(0,10),[ids[1]]:users.slice(10)},feedback:{}};
+        const cohort=pool(c),perArm=data.per_arm||(c.planning?Math.max(1,Math.ceil(cohort.length*c.planning.pilot_ratio/2)):10);if(cohort.length<2*perArm)error(422,'符合条件的人群不足');const users=cohort.slice(0,2*perArm).map(p=>p.id),eid=id();
+        db.experiments[eid]={id:eid,campaign_id:c.id,status:'RUNNING',winner:null,arms:{[ids[0]]:users.slice(0,perArm),[ids[1]]:users.slice(perArm)},feedback:{}};
         save();return response(db.experiments[eid],201);
       }
       const e=db.experiments[cid];if(!e)error(404,'实验不存在');

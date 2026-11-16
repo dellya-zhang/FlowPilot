@@ -8,7 +8,10 @@ from fastapi import HTTPException
 from sqlalchemy import select, delete, update
 from app.agents.marketing import marketing_graph
 from app.db.base import SessionLocal
-from app.models.entities import Campaign, Candidate, Event, Customer, Artifact, Experiment
+from app.models.entities import Campaign, Candidate, Event, Customer, Artifact, Experiment, CandidatePlan, PlanningContext
+from app.services.planning import planning_input, audience_pool, PlanNeedsClarification
+from app.schemas.contracts import PlanningInput
+from collections import Counter
 from app.services.rules import check_marketing
 from app.services.storage import put_blob, get_verified_blob
 from botocore.exceptions import BotoCoreError
@@ -50,16 +53,21 @@ async def generate_candidates(campaign_id: str, gate=None):
                 return
             # Idempotent recovery: discard partial outputs from an interrupted run.
             await fence(db, campaign_id, owner)
+            await db.execute(delete(CandidatePlan).where(CandidatePlan.candidate_id.in_(select(Candidate.id).where(Candidate.campaign_id == campaign_id))))
             await db.execute(delete(Candidate).where(Candidate.campaign_id == campaign_id))
             await db.commit()
             await emit(db, campaign_id, "generation.started", {"count": 3, "owner": owner}, owner=owner)
             sem = asyncio.Semaphore(2)
+            planning = await planning_input(db, campaign_id)
+            eligible, held = await audience_pool(db, campaign)
 
             async def one(variant: int):
                 async with sem, gate:
                     result = await asyncio.wait_for(marketing_graph.ainvoke({
                         "brief": campaign.brief, "audience": campaign.audience,
-                        "budget": campaign.budget, "variant": variant,
+                        "budget": campaign.budget, "variant": variant, "planning": planning,
+                        "audience_count": len(eligible), "holdout_count": len(held),
+                        "user_layers": [{"segment":segment,"count":count} for segment,count in sorted(Counter(c.segment for c in eligible).items())],
                     }), timeout=get_settings().candidate_timeout_seconds)
                     issues = check_marketing(result["title"] + "\n" + result["message"], campaign.budget)
                     if issues:
@@ -73,11 +81,13 @@ async def generate_candidates(campaign_id: str, gate=None):
                     return exc
 
             successes = 0
+            needs_clarification = False
             children = [asyncio.create_task(safe_one(v)) for v in (1, 2, 3)]
             try:
                 for future in asyncio.as_completed(children):
                     item = await future
                     if isinstance(item, Exception):
+                        needs_clarification = needs_clarification or isinstance(item, PlanNeedsClarification)
                         await emit(db, campaign_id, "candidate.failed", {"error": type(item).__name__}, owner=owner)
                         continue
                     variant, data = item
@@ -88,6 +98,8 @@ async def generate_candidates(campaign_id: str, gate=None):
                     db.add(candidate)
                     await db.flush()
                     cid = candidate.id
+                    if data.get("plan_data"):
+                        db.add(CandidatePlan(candidate_id=cid, data=data["plan_data"]))
                     await emit(db, campaign_id, "candidate.ready", {"variant": variant, "candidate_id": cid}, owner=owner)
                     successes += 1
             finally:
@@ -95,7 +107,14 @@ async def generate_candidates(campaign_id: str, gate=None):
                     if not child.done():
                         child.cancel()
                 await asyncio.gather(*children, return_exceptions=True)
-            campaign.status = "WAITING_APPROVAL" if successes else "FAILED"
+            campaign.status = "WAITING_APPROVAL" if successes else "NEEDS_CLARIFICATION" if needs_clarification else "FAILED"
+            if campaign.status == "NEEDS_CLARIFICATION":
+                context = await db.get(PlanningContext, campaign_id)
+                revised = {**(planning or PlanningInput().model_dump()), '_questions':['请补充权益适用条件、渠道限制及业务目标，再保存信息重新生成。']}
+                if context:
+                    context.data = revised
+                else:
+                    db.add(PlanningContext(campaign_id=campaign_id,data=revised))
             await emit(db, campaign_id, "generation.finished", {"status": campaign.status, "successes": successes}, owner=owner)
     except LostLease:
         log.warning("Stale execution discarded: %s", campaign_id)
@@ -132,10 +151,7 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
     existing = await db.scalar(select(Artifact).where(Artifact.campaign_id == campaign.id, Artifact.kind == kind))
     if existing:
         return existing
-    customer_query = select(Customer).where(Customer.consent.is_(True)).order_by(Customer.id)
-    if campaign.audience != "all":
-        customer_query = customer_query.where(Customer.segment == campaign.audience)
-    customers = list((await db.scalars(customer_query)).all())
+    customers, _ = await audience_pool(db, campaign)
     pilot = await db.scalar(select(Artifact).where(Artifact.campaign_id == campaign.id, Artifact.kind == "pilot"))
     if kind == "full" and pilot:
         import io as _io
@@ -149,7 +165,9 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
     if kind == "pilot":
         seed = int(hashlib.sha256(campaign.id.encode()).hexdigest()[:16], 16)
         rng = random.Random(seed)
-        customers = rng.sample(customers, k=min(25, len(customers)))
+        planning = await planning_input(db, campaign.id)
+        size = max(1, __import__("math").ceil(len(customers)*planning["pilot_ratio"])) if planning else 25
+        customers = rng.sample(customers, k=min(size, len(customers)))
         customers.sort(key=lambda c: c.id)
     blob = generate_csv(customers)
     digest = hashlib.sha256(blob).hexdigest()

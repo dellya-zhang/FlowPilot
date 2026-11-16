@@ -25,6 +25,15 @@
       <textarea id="brief" maxlength="2000" placeholder="例如：向新会员介绍积分查询和专属客服，不添加未声明的优惠。">为新会员介绍积分查询与专属客服权益，强调自愿参与</textarea><div class="field-meta"><span>只填写可公开的业务信息</span><span id="briefCount">0 / 2000</span></div>
       <label for="audience">目标人群</label><select id="audience"><option value="all">全部客群</option><option value="new">新用户</option><option value="active">活跃用户</option><option value="dormant">沉睡用户</option></select>
       <label for="budget">活动预算 <span class="label-note">CNY</span></label><div class="input-with-prefix"><span>¥</span><input id="budget" type="number" value="10000" min="100" max="100000" step="100" inputmode="numeric"></div>
+      <details class="planning-fields" open><summary>策略约束与试点参数</summary>
+      <label for="planIntent">业务目标</label><select id="planIntent"><option value="education">权益认知</option><option value="acquisition">新客获取</option><option value="retention">用户留存</option><option value="reactivation">沉睡唤醒</option></select>
+      <label for="knownBenefits">已确认的权益或服务 *</label><textarea id="knownBenefits" maxlength="1000" placeholder="写明实际权益；无优惠请写“不提供额外优惠”。">积分查询、专属客服；不提供额外优惠</textarea>
+      <label for="planChannel">建议触达渠道（仅生成交接参数）</label><select id="planChannel"><option value="manual">人工触达</option><option value="sms">短信</option><option value="in_app">站内消息</option></select>
+      <label for="planRegion">地区条件</label><select id="planRegion"><option value="all">不限地区</option><option value="north">北区</option><option value="south">南区</option><option value="east">东区</option><option value="west">西区</option></select>
+      <label for="unitCost">单人触达成本（元；0表示未知）</label><input id="unitCost" type="number" value="0" min="0" max="1000" step="0.01">
+      <label for="pilotRatio">试点比例（5%–30%）</label><input id="pilotRatio" type="number" value="10" min="5" max="30">
+      <label for="windowDays">建议观察天数（不自动计时）</label><input id="windowDays" type="number" value="7" min="3" max="14">
+      <label class="check-label"><input id="enableHoldout" type="checkbox"> 保留10%不触达对照人群</label><p class="fine-print">名单执行地区、同意状态及对照组排除；渠道、节奏和观察窗口是交接建议，不执行真实投放。</p></details>
       <button id="create" class="primary full-width">创建并生成方案 <span aria-hidden="true">↗</span></button><p class="fine-print">活动预算用于方案约束，与模型调用费用独立。</p>
     </section>
     <section class="panel history-panel"><div class="section-heading spread"><h2>最近计划</h2><span id="taskCount" class="count-pill">0</span></div><div id="tasks"><p class="empty-small">还没有计划，创建你的第一项任务。</p></div></section>
@@ -33,7 +42,7 @@
   <article class="main-column">
     <section class="panel plan-panel"><div class="section-heading spread"><div><div class="eyebrow">PLAN & DELIVERY</div><h2>方案与交付</h2></div><span id="phaseBadge" class="phase-badge">尚未开始</span></div>
       <div class="stepper" aria-label="任务进度"><span data-step="0"><i>1</i>生成方案</span><b></b><span data-step="1"><i>2</i>人工决策</span><b></b><span data-step="2"><i>3</i>试点验证</span><b></b><span data-step="3"><i>4</i>全量交付</span></div>
-      <div class="next-action" aria-live="polite"><strong id="nextTitle">第一步 · 描述活动目标</strong><p id="nextDetail">选择上方场景或填写左侧目标，生成三套候选后再决定交付路线。</p></div><p class="state" id="status">选择历史任务或创建新任务</p>
+      <div class="next-action" aria-live="polite"><strong id="nextTitle">第一步 · 描述活动目标</strong><p id="nextDetail">选择上方场景或填写左侧目标，生成三套候选后再决定交付路线。</p></div><section id="planningQuestions" class="route-choice" hidden aria-live="polite"></section><div class="planning-actions"><button id="clarifyPlan" class="secondary" hidden>保存补充信息</button><button id="resumePlan" class="primary" hidden>继续生成当前计划</button></div><p class="state" id="status">选择历史任务或创建新任务</p>
       <div id="candidates"><div class="empty-state"><span class="empty-art" aria-hidden="true">✧</span><h3>下一项计划，从这里开始</h3><p>在左侧描述活动目标。生成后，你可以比较候选、确认方案，<br class="desktop-only">或通过 A/B 试点验证不同方向。</p><div class="empty-tags"><span>有界并发</span><span>人工确认</span><span>交付可追踪</span></div></div></div>
       <div class="route-choice" id="routeChoice" hidden><strong>选择一条决策路线</strong><p>单方案：在候选卡片中审批一套，再导出试点。A/B：先创建双臂试点，观察反馈后人工晋级。两条路线互斥。</p></div><div class="delivery-actions"><div><h3>名单交付</h3><p class="hint">确认方案后，先小范围试点，再进行排重交付。</p></div><div><button id="pilot" class="secondary" disabled>导出试点名单</button><button id="finalize" class="primary" disabled>全量排重交付 <span>↓</span></button></div></div><div id="artifacts" class="artifact-list"></div>
     </section>
@@ -50,6 +59,7 @@
   </aside>
 </main>
 <footer><span><strong>FlowPilot</strong> · 让方案有依据，让交付可追踪。</span><a href="https://github.com/dellya-zhang/FlowPilot" target="_blank" rel="noopener noreferrer">开源项目 ↗</a></footer>
+<script src="./planning.js"></script>
 <script src="./demo.js"></script>
 <script src="./app.js"></script>
 <script src="./workspace.js"></script>
