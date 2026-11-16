@@ -4,7 +4,7 @@
 [![Interactive demo](https://img.shields.io/badge/demo-在线交互预览-94cb65)](https://dellya-zhang.github.io/temp/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](pyproject.toml)
 
-**一个可以操作完整业务流程的 Backend + Agent 作品集项目。** 输入营销目标，生成候选、人工审批、开展双臂试点，最终下载排重名单；同时演示客服政策查询与敏感操作确认。
+**面向营销运营与客服协作的本地可运行 Agent 工作台。** 输入营销目标，生成候选、人工审批、开展双臂试点，最终下载排重名单；同时演示客服政策查询与敏感操作确认。
 
 **[打开白色交互工作台 →](https://dellya-zhang.github.io/temp/)** · [用户操作指南](docs/用户操作指南.md) · [架构设计](docs/设计映射与架构.md) · [测试报告](#测试与验证)
 
@@ -214,7 +214,7 @@ python scripts/multiprocess_check.py
 - **已知改进点**：信息不足时缺少完整澄清阶段；拒绝说明可能成为候选；Critic为启发式评分；关键词护栏存在误报。
 - **部署边界**：同机文件锁依赖共享路径；租约依赖同机时钟；副作用不保证精确一次；`create_all`不替代版本化迁移。
 
-[面试追问与回答](docs/面试追问与回答.md) · [极限工况面试补充](docs/极限工况面试补充.md)
+[优化路线与验收标准](docs/优化路线.md) · [变更记录](CHANGELOG.md)
 
 ## 目录
 
@@ -225,9 +225,9 @@ app/services/     租约、预算、规则、存储及业务逻辑
 app/models/       业务表与执行租约
 web/              真实后端工作台及显式浏览器模拟适配器
 scripts/          HTTP、多进程、浏览器与可选付费评测
- tests/           隔离自动测试
- docs/            操作指南、架构、测试结果和截图
+tests/           隔离自动测试
+docs/            操作指南、架构、测试结果和截图
 .github/workflows/ CI与静态预览发布
 ```
 
-保留仓库原有 [LICENSE](LICENSE)。欢迎基于实际实现提交问题与改进；请勿提交密钥、真实客户名单或私人简历材料。
+保留仓库原有 [LICENSE](LICENSE)。欢迎基于实际实现提交问题与改进；请勿提交密钥、真实客户名单或私人资料。

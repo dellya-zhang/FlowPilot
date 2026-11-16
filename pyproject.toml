@@ -8,7 +8,7 @@ include = ["app*"]
 [project]
 name = "agent-backend-platform"
 version = "0.1.0"
-description = "Runnable marketing and customer support Agent backend reference implementation"
+description = "Local-first marketing workflow and customer support Agent workbench"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1", "uvicorn[standard]>=0.34,<1", "pydantic-settings>=2.7,<3",
