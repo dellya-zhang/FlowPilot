@@ -1,15 +1,55 @@
 const $=id=>document.getElementById(id);let cid=null,sid=sessionStorage.getItem('sid'),xs=[],stream=null,exp=null;let refreshSequence=0;let currentCampaign=null;let token='';sessionStorage.removeItem('token');$('token').value=token;
-let currentPlanning=null;
+let currentPlanning=null,streamRefreshTimer=null;
+function scheduleStreamRefresh(){clearTimeout(streamRefreshTimer);streamRefreshTimer=setTimeout(()=>guard(refresh),150)}
 const statuses={NEEDS_CLARIFICATION:'等待补充策略信息',CREATED:'待生成',GENERATING:'生成中',WAITING_APPROVAL:'等待人工审批',PILOT_READY:'可交付试点',PILOT_EXPORTED:'试点已完成',COMPLETED:'全量已交付',FAILED:'生成失败'};
 async function api(path,method='GET',body,extraHeaders={}){const r=await fetch('/api/v1'+path,{method,headers:{'Content-Type':'application/json',...extraHeaders,...(token?{'Authorization':'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok){const error=Error(typeof data.detail==='string'?data.detail:JSON.stringify(data));error.status=r.status;throw error}return data}
 function el(tag,text,parent){const n=document.createElement(tag);n.textContent=text;parent.append(n);return n}function button(text,parent,fn){const b=el('button',text,parent);b.className='secondary';b.onclick=()=>guard(fn,b);return b}
 async function guard(fn,b){$('notice').textContent='';if(b?.dataset.busy)return;if(b)b.dataset.busy='1';const wasDisabled=b?.disabled;if(b)b.disabled=true;try{await fn()}catch(e){$('notice').textContent=e.message||'连接失败，请检查本地服务'}finally{if(b){delete b.dataset.busy;b.disabled=wasDisabled||false;}if(currentCampaign)syncControls(currentCampaign)}}
 async function tasks(){const rows=await api('/campaigns');$('taskCount').textContent=rows.length;$('tasks').replaceChildren();if(!rows.length)el('p','还没有计划，创建你的第一项任务。',$('tasks')).className='empty-small';for(const c of rows){const b=button('', $('tasks'),()=>select(c.id));b.className='task'+(c.id===cid?' active':'');el('span',c.brief,b).className='task-title';el('small',statuses[c.status]||c.status,b)}}
 
-async function select(id){cid=id;exp=null;$('experimentView').replaceChildren();if(stream)stream.close();await refresh();if(currentPlanning?.input)fillPlanningInput(currentPlanning.input);await renderExperiment();if(!token&&!window.FlowPilotDemo){stream=new EventSource('/api/v1/campaigns/'+id+'/stream');for(const name of ['candidate.ready','candidate.failed','generation.finished','generation.failed','campaign.approved','pilot.exported','campaign.completed'])stream.addEventListener(name,()=>guard(refresh))}}
-async function refresh(){if(!cid)return;const viewId=cid,sequence=++refreshSequence;const [c,cs,events,arts,planning]=await Promise.all([api('/campaigns/'+viewId),api('/campaigns/'+viewId+'/candidates'),api('/campaigns/'+viewId+'/events'),api('/campaigns/'+viewId+'/artifacts'),api('/campaigns/'+viewId+'/planning')]);if(viewId!==cid||sequence!==refreshSequence)return;currentCampaign=c;currentPlanning=planning;if(planning.experiment_id)sessionStorage.setItem('exp-'+viewId,planning.experiment_id);xs=cs;renderPlanningState(c,planning);syncControls(c);window.dispatchEvent(new CustomEvent('campaign-view',{detail:c}));$('status').textContent=(statuses[c.status]||c.status)+' · '+cid;$('candidates').replaceChildren();for(const x of cs){const box=el('div','',$('candidates'));box.className='candidate'+(c.selected_candidate_id===x.id?' selected':'');const head=el('div','',box);head.className='candidate-head';el('span','候选方案 / 0'+x.variant,head).className='badge';el('span','完整性评分 '+x.score,head).className='score';el('h3',x.title,box);el('p',x.message,box);el('small',x.reasoning,box);if(x.plan_data)renderStrategy(x.plan_data,box);const b=button(c.selected_candidate_id===x.id?'已选方案':'审批此方案',box,async()=>{await api('/campaigns/'+cid+'/approve','POST',{candidate_id:x.id});await refresh()});b.className=c.selected_candidate_id===x.id?'primary':'secondary';b.disabled=!!sessionStorage.getItem('exp-'+cid)||c.status!=='WAITING_APPROVAL'}$('pilot').disabled=!!sessionStorage.getItem('exp-'+cid)||!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status);$('finalize').disabled=!['PILOT_EXPORTED','COMPLETED'].includes(c.status);$('experiment').disabled=c.status!=='WAITING_APPROVAL'||cs.length<2;$('events').textContent=events.map(e=>e.id+' '+e.name+' '+JSON.stringify(e.payload)).join('\n');$('artifacts').replaceChildren();for(const a of arts){button(a.kind+' · '+a.row_count+' 人 · 下载 CSV',$('artifacts'),async()=>{const r=await fetch('/api/v1/artifacts/'+a.id+'/download',{headers:token?{'Authorization':'Bearer '+token}:{}});if(!r.ok)throw Error('下载失败');const url=URL.createObjectURL(await r.blob());const link=document.createElement('a');link.href=url;link.download=a.kind+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)})}await tasks()}
-async function experiment(){exp=await api('/experiments','POST',{campaign_id:cid,candidate_ids:xs.slice(0,2).map(x=>x.id)});sessionStorage.setItem('exp-'+cid,exp.id);await renderExperiment();await refresh()}
-async function renderExperiment(){const id=exp?.id||sessionStorage.getItem('exp-'+cid);if(!id)return;exp=await api('/experiments/'+id);const box=$('experimentView');box.replaceChildren();for(const arm of exp.arms){const armBox=el('div','',box);armBox.className='experiment-arm';const matched=xs.find(x=>x.id===arm.candidate_id);el('h3',matched?.title||('方案 '+arm.candidate_id.slice(0,8)),armBox);el('p',arm.users.length+' 位试点用户 · '+arm.conversions+' 位转化 · 转化率 '+(100*arm.rate).toFixed(1)+'%',armBox);if(exp.status==='RUNNING'){button('记录一名模拟转化',armBox,async()=>{await api('/experiments/'+id+'/feedback','POST',{event_id:id+'-'+arm.users[0],candidate_id:arm.candidate_id,customer_id:arm.users[0]});await renderExperiment()});button('人工选为胜出方案',armBox,async()=>{await api('/experiments/'+id+'/promote?candidate_id='+arm.candidate_id,'POST');await renderExperiment();await refresh()})}}el('small',exp.note,box)}
+async function select(id){cid=id;exp=null;$('experimentView').replaceChildren();if(stream)stream.close();clearTimeout(streamRefreshTimer);await refresh();if(currentPlanning?.input)fillPlanningInput(currentPlanning.input);await renderExperiment();if(!token&&!window.FlowPilotDemo){stream=new EventSource('/api/v1/campaigns/'+id+'/stream');for(const name of ['candidate.ready','candidate.revised','candidate.failed','generation.finished','generation.failed','campaign.approved','pilot.exported','campaign.completed','operator.reviewed','execution.observed'])stream.addEventListener(name,scheduleStreamRefresh)}}
+async function refresh(){
+  if(!cid)return;
+  const viewId=cid,sequence=++refreshSequence;
+  const [c,cs,events,arts,planning,evaluation]=await Promise.all([
+    api('/campaigns/'+viewId),api('/campaigns/'+viewId+'/candidates'),api('/campaigns/'+viewId+'/events'),
+    api('/campaigns/'+viewId+'/artifacts'),api('/campaigns/'+viewId+'/planning'),api('/campaigns/'+viewId+'/evaluation')]);
+  if(viewId!==cid||sequence!==refreshSequence)return;
+  currentCampaign=c;currentPlanning=planning;
+  if(planning.experiment_id)sessionStorage.setItem('exp-'+viewId,planning.experiment_id);
+  xs=cs;renderPlanningState(c,planning);renderCandidateList(c,cs);syncControls(c);
+  window.dispatchEvent(new CustomEvent('campaign-view',{detail:c}));
+  $('status').textContent=(statuses[c.status]||c.status)+' · '+cid;
+  $('events').textContent=events.map(e=>e.id+' '+e.name+' '+JSON.stringify(e.payload)).join('\n');
+  $('artifacts').replaceChildren();
+  for(const a of arts){
+    const box=el('div','',$('artifacts'));box.className='artifact-item';
+    if(a.binding)el('small','交付版本 v'+a.binding.revision+' · '+a.binding.snapshot.title,box);
+    button(a.kind+' · '+a.row_count+' 人 · 下载 CSV',box,async()=>{
+      const r=await fetch('/api/v1/artifacts/'+a.id+'/download',{headers:token?{'Authorization':'Bearer '+token}:{}});
+      if(!r.ok)throw Error('下载失败');const url=URL.createObjectURL(await r.blob());const link=document.createElement('a');link.href=url;link.download=a.kind+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+  }
+  renderEvaluation(evaluation);await tasks();
+}
+async function experiment(){const ids=selectedExperimentIds();if(ids.length!==2)throw Error('请选择两个候选加入 A/B 对照');exp=await api('/experiments','POST',{campaign_id:cid,candidate_ids:ids,expected_revisions:Object.fromEntries(xs.filter(x=>ids.includes(x.id)).map(x=>[x.id,x.plan_data?.revision||1]))});sessionStorage.setItem('exp-'+cid,exp.id);await renderExperiment();await refresh()}
+async function renderExperiment(){
+  const id=exp?.id||sessionStorage.getItem('exp-'+cid);if(!id)return;
+  exp=await api('/experiments/'+id);const box=$('experimentView');box.replaceChildren();
+  if(exp.binding?.comparison)el('p','比较变量：'+(exp.binding.comparison.axis_label||'历史方案')+'；方案版本已冻结。',box).className='hint';
+  for(const arm of exp.arms){
+    const armBox=el('div','',box);armBox.className='experiment-arm';const matched=xs.find(x=>x.id===arm.candidate_id);
+    el('h3',matched?.title||('方案 '+arm.candidate_id.slice(0,8)),armBox);
+    el('p',arm.users.length+' 位试点用户 · '+arm.conversions+' 位模拟回流 · 比率 '+(100*arm.rate).toFixed(1)+'%',armBox);
+    if(exp.status==='RUNNING'){
+      button('记录一名模拟转化',armBox,async()=>{await api('/experiments/'+id+'/feedback','POST',{event_id:id+'-'+arm.users[0],candidate_id:arm.candidate_id,customer_id:arm.users[0]});await renderExperiment()});
+      const reason=labeled(armBox,'人工晋级依据（可选；未完成观察时说明原因）','textarea','',{maxLength:1000});
+      button('人工选为胜出方案',armBox,async()=>{await api('/experiments/'+id+'/promote?candidate_id='+arm.candidate_id,'POST',{decision_reason:reason.value||null});await renderExperiment();await refresh()});
+    }
+  }
+  el('small','上方模拟回流按钮仅演示事件去重；下方复盘报告使用先送达、后转化的独立观察记录，不混用两种分母。',box);
+  el('small',exp.note,box);
+}
 async function chat(){if(!sid){sid=(await api('/support/sessions','POST')).session_id;sessionStorage.setItem('sid',sid)}const result=await api('/support/sessions/'+sid+'/messages','POST',{content:$('message').value});await history();$('confirmBox').hidden=!result.needs_confirmation}
 async function history(){if(!sid)return;const rows=await api('/support/sessions/'+sid+'/messages');$('chatlog').replaceChildren();for(const r of rows)el('p',r.content,$('chatlog')).className=r.role;$('chatlog').scrollTop=$('chatlog').scrollHeight}
 $('create').onclick=()=>guard(async()=>{const c=await api('/campaigns','POST',{brief:$('brief').value,audience:$('audience').value,budget:Number($('budget').value),planning:readPlanningInput()});try{if(c.status==='CREATED')await api('/campaigns/'+c.id+'/generate','POST')}finally{await select(c.id)}},$('create'));
@@ -22,7 +62,7 @@ function syncControls(c){
   const isExperiment=!!sessionStorage.getItem('exp-'+c.id);
   $('pilot').disabled=isExperiment||!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status);
   $('finalize').disabled=!['PILOT_EXPORTED','COMPLETED'].includes(c.status);
-  $('experiment').disabled=isExperiment||c.status!=='WAITING_APPROVAL'||xs.length<2;
+  $('experiment').disabled=isExperiment||c.status!=='WAITING_APPROVAL'||selectedExperimentIds().length!==2;
   $('phaseBadge').textContent=statuses[c.status]||c.status;
   const phases={NEEDS_CLARIFICATION:-1,CREATED:-1,GENERATING:0,WAITING_APPROVAL:1,PILOT_READY:1,PILOT_EXPORTED:2,COMPLETED:3,FAILED:-1};
   for(const step of document.querySelectorAll('[data-step]'))step.classList.toggle('active',Number(step.dataset.step)<=phases[c.status]);

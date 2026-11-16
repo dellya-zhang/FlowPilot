@@ -6,13 +6,15 @@ from fastapi.responses import StreamingResponse, Response
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import session_dep, SessionLocal
-from app.models.entities import Campaign, Candidate, Event, Artifact, SupportSession, Experiment, PlanningContext, CandidatePlan
+from app.models.entities import Campaign, Candidate, Event, Artifact, SupportSession, Experiment, PlanningContext, CandidatePlan, ArtifactBinding
 from app.schemas.contracts import (CampaignCreate, CampaignView, CandidateView, Approval,
                                    ArtifactView, SupportMessageInput, SupportDecision, PlanningInput)
 from app.services.campaigns import generate_candidates, export_audience, require_campaign, emit, transition
 from app.services.storage import get_verified_blob
 from app.services.support import send_message, confirm_action
-from app.services.planning import planning_input, missing_inputs, audience_pool
+from app.services.planning import planning_input, missing_inputs, audience_pool, freeze_audience, plan_document
+from app.services.strategy_design import variants
+from app.services.versions import checked_snapshot, bind_decision
 from app.services.limiter import limit
 from app.services.support import history
 from app.core.config import get_settings
@@ -71,6 +73,7 @@ async def generation_slot(app):
 async def start_generate(campaign_id: str, request: Request, db: AsyncSession = Depends(session_dep)):
     await limit(request, "generate", 10)
     async with generation_slot(request.app):
+        await db.execute(update(Campaign).where(Campaign.id == campaign_id).values(updated_at=Campaign.updated_at))
         campaign = await require_campaign(db, campaign_id)
         if campaign.status != "CREATED":
             raise HTTPException(409, f"Cannot generate in {campaign.status}")
@@ -79,8 +82,10 @@ async def start_generate(campaign_id: str, request: Request, db: AsyncSession = 
             audience, _ = await audience_pool(db, campaign)
             if not audience:
                 raise HTTPException(422, '没有符合条件且同意触达的用户，请调整人群条件')
-            if len(audience)*planning['unit_cost_cny'] > campaign.budget:
+            designs=[plan_document({'planning':planning,'brief':campaign.brief,'audience':campaign.audience,'budget':campaign.budget,'variant':v,'audience_count':len(audience)}) for v in variants(planning)]
+            if designs and all(p['cost_estimate']['within_budget'] is False for p in designs):
                 raise HTTPException(422, '预计触达费用超过活动预算，请调整单价或人群条件；未调用模型')
+        await freeze_audience(db,campaign)
         await transition(db, campaign_id, "CREATED", "GENERATING", event_name="generation.queued")
         task = asyncio.create_task(generate_candidates(campaign.id, request.app.state.model_slots))
         request.app.state.track_task(task)
@@ -173,6 +178,9 @@ async def approve(campaign_id: str, data: Approval, db: AsyncSession = Depends(s
     candidate = await db.get(Candidate, data.candidate_id)
     if not candidate or candidate.campaign_id != campaign_id:
         raise HTTPException(422, "Candidate does not belong to campaign")
+    snapshot=await checked_snapshot(db,candidate,data.expected_revision)
+    await freeze_audience(db,campaign)
+    await bind_decision(db,campaign,snapshot,'approval',data.decision_reason)
     await transition(db, campaign_id, "WAITING_APPROVAL", "PILOT_READY", selected_candidate_id=candidate.id,
                      event_name="campaign.approved", event_payload={"candidate_id":candidate.id})
     await db.refresh(campaign)
@@ -209,7 +217,11 @@ async def finalize(campaign_id: str, db: AsyncSession = Depends(session_dep)):
 @router.get("/campaigns/{campaign_id}/artifacts", response_model=list[ArtifactView])
 async def artifacts(campaign_id: str, db: AsyncSession = Depends(session_dep)):
     await require_campaign(db, campaign_id)
-    return list((await db.scalars(select(Artifact).where(Artifact.campaign_id == campaign_id))).all())
+    rows=list((await db.scalars(select(Artifact).where(Artifact.campaign_id == campaign_id))).all())
+    for row in rows:
+        binding=await db.get(ArtifactBinding,row.id)
+        row.binding=binding.data if binding else None
+    return rows
 
 
 @router.get("/artifacts/{artifact_id}/download")

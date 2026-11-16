@@ -21,9 +21,9 @@
     "read_burst_500": {
       "success": 500,
       "max_connections": 32,
-      "wall_seconds": 2.292,
-      "client_p50_ms": 1328.75,
-      "client_p95_ms": 2088.74,
+      "wall_seconds": 2.065,
+      "client_p50_ms": 1204.28,
+      "client_p95_ms": 1884.22,
       "note": "Includes client connection-pool waiting; finite local burst, not production QPS capacity."
     },
     "process_kill_restart": {

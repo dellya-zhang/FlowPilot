@@ -121,3 +121,57 @@ class CandidatePlan(Base):
     __tablename__ = "candidate_plans"
     candidate_id: Mapped[str] = mapped_column(ForeignKey("candidates.id"), primary_key=True)
     data: Mapped[dict] = mapped_column(JSON)
+
+
+class PlanRevision(Base):
+    __tablename__ = "plan_revisions"
+    candidate_id: Mapped[str] = mapped_column(ForeignKey("candidates.id"), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    reason: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DecisionBinding(Base):
+    __tablename__ = "decision_bindings"
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class ExperimentBinding(Base):
+    __tablename__ = "experiment_bindings"
+    experiment_id: Mapped[str] = mapped_column(ForeignKey("experiments.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class ArtifactBinding(Base):
+    __tablename__ = "artifact_bindings"
+    artifact_id: Mapped[str] = mapped_column(ForeignKey("artifacts.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class AudienceSnapshot(Base):
+    __tablename__ = "audience_snapshots"
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class OperatorReview(Base):
+    __tablename__ = "operator_reviews"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ExecutionObservation(Base):
+    __tablename__ = "execution_observations"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    candidate_id: Mapped[str] = mapped_column(ForeignKey("candidates.id"))
+    revision: Mapped[int] = mapped_column(Integer)
+    customer_id: Mapped[int] = mapped_column(Integer)
+    outcome: Mapped[str] = mapped_column(String(16))
+    contact_number: Mapped[int] = mapped_column(Integer,default=0)
+    data: Mapped[dict] = mapped_column(JSON)
+    __table_args__ = (UniqueConstraint("campaign_id", "candidate_id", "revision", "customer_id", "outcome", "contact_number"),)

@@ -1,6 +1,7 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 from app.agents.provider import draft
+from app.core.config import get_settings
 from app.services.planning import plan_document, audience_rules, PlanNeedsClarification
 from app.services.rules import check_marketing
 
@@ -16,6 +17,7 @@ class MarketingState(TypedDict, total=False):
     user_layers: list[dict]
     audience_count: int
     holdout_count: int
+    content_source: str
     outcome: str
     title: str
     message: str
@@ -47,9 +49,14 @@ async def planning_compliance(state):
 
 
 async def executor(state):
+    plan = state['plan_data']
+    if plan['strategy']['comparison_axis'] != 'message':
+        return {'content_source':'operator_reference','outcome':'draft','title':plan['comparison']['axis_label']+' · '+plan['comparison']['value'],
+                'message':plan['planning_input']['reference_message'], 'reasoning':'固定运营确认文案，仅比较'+plan['comparison']['axis_label'],
+                'trace':state['trace']+['content_preview']}
     output = await draft(state['brief'], state['audience'], state['variant'],
                          budget=state['budget'], plan=state['plan_data'])
-    return {**output, 'trace':state['trace']+['content_preview']}
+    return {**output, 'content_source':get_settings().ai_provider, 'trace':state['trace']+['content_preview']}
 
 
 async def content_compliance(state):
@@ -71,6 +78,7 @@ async def critic(state):
     plan = state['plan_data']
     plan['content_preview_variants'] = [{'title':state['title'], 'copy':state['message'], 'finalized':False}]
     plan['compliance'] = {'decision':'PASS', 'checks':['budget_ceiling','estimated_contact_cost','consent_audience','prohibited_claims','limited_refusal_patterns'], 'scope':'演示规则通过；不代表法律合规或业务事实审核'}
+    plan['content_source']=state.get('content_source','configured_provider')
     plan['trace'] = state['trace']+['plan_output']
     # Completeness rubric, never interpreted as confidence or conversion probability.
     return {'score':sum([20,20,20,20,20 if plan['cost_estimate']['source']=='operator_input' else 0]), 'plan_data':plan}

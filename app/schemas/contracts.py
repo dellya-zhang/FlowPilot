@@ -1,5 +1,5 @@
 from typing import Literal
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 import unicodedata
 
 
@@ -15,6 +15,28 @@ class InputModel(BaseModel):
 
 
 class PlanningInput(InputModel):
+    scenario: Literal["membership_benefits"] = "membership_benefits"
+    comparison_axis: Literal["message", "frequency", "channel"] = "message"
+    reference_message: str = Field(default="", max_length=400)
+    success_definition: str = Field(default="用户主动查询权益或联系专属客服", min_length=5, max_length=300)
+    contacts_per_user: int = Field(default=1, ge=1, le=3)
+    available_channels: list[Literal["manual", "sms", "in_app"]] = Field(default_factory=list, max_length=3)
+    channel_costs: dict[Literal["manual", "sms", "in_app"], float] = Field(default_factory=dict)
+
+    @field_validator("channel_costs")
+    @classmethod
+    def valid_costs(cls, value):
+        import math
+        if any(not math.isfinite(v) or not 0 <= v <= 1000 for v in value.values()):
+            raise ValueError("Channel costs must be finite and between 0 and 1000")
+        return value
+
+    @model_validator(mode="after")
+    def primary_channel_available(self):
+        if self.comparison_axis != "channel" and self.available_channels and self.channel not in self.available_channels:
+            raise ValueError("所选主渠道必须包含在已确认可用的渠道中")
+        return self
+
     intent: Literal["acquisition", "retention", "reactivation", "education"] = "education"
     known_benefits: str = Field(default="", max_length=1000)
     channel: Literal["manual", "sms", "in_app"] = "manual"
@@ -56,10 +78,13 @@ class CandidateView(BaseModel):
 
 
 class Approval(BaseModel):
+    decision_reason: str | None = Field(default=None,max_length=1000)
     candidate_id: str
+    expected_revision: int | None = Field(default=None, ge=1)
 
 
 class ArtifactView(BaseModel):
+    binding: dict | None = None
     id: str
     kind: str
     sha256: str

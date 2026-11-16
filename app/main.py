@@ -136,6 +136,8 @@ from app.api.local_model import router as local_model_router
 app.include_router(local_model_router)
 from app.api.knowledge import router as knowledge_router
 app.include_router(knowledge_router)
+from app.api.operations import router as operations_router
+app.include_router(operations_router)
 
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
