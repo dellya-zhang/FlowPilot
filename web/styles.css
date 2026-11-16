@@ -933,3 +933,5 @@ footer>span {
   min-height:36px}
 }
 
+
+.knowledge-panel input[type="checkbox"]{width:auto;display:inline;margin-right:6px}.knowledge-panel small{display:block;overflow-wrap:anywhere;margin:8px 0}.knowledge-panel #knowledgeResult p{white-space:pre-wrap;overflow-wrap:anywhere}

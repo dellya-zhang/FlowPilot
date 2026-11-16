@@ -24,3 +24,6 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 [tool.ruff]
 line-length = 110
+
+[tool.setuptools.package-data]
+app = ["knowledge/*.md"]

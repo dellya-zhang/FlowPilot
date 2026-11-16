@@ -1,4 +1,5 @@
 import asyncio
+import mimetypes
 import logging
 import secrets
 import time
@@ -133,5 +134,9 @@ app.include_router(router)
 app.include_router(experiment_router)
 from app.api.local_model import router as local_model_router
 app.include_router(local_model_router)
+from app.api.knowledge import router as knowledge_router
+app.include_router(knowledge_router)
 
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/css", ".css")
 app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "web"), html=True), name="demo")

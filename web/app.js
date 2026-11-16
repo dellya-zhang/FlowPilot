@@ -55,3 +55,16 @@ $('testModel').onclick=()=>guard(async()=>{
   catch(e){$('modelResult').textContent=e.message;throw e;}
   finally{await loadModelStatus();}
 },$('testModel'));
+
+// A separate read-only knowledge entry never touches pending support actions.
+if(window.FlowPilotDemo){
+  $('knowledgeAsk').disabled=true;$('knowledgeModel').disabled=true;
+  $('knowledgeResult').textContent='知识库检索需本地 Python 后端；在线预览不模拟 RAG 结果。';
+}else{
+  $('knowledgeAsk').onclick=()=>guard(async()=>{
+    const r=await api('/knowledge/answer','POST',{question:$('knowledgeQuestion').value,use_model:$('knowledgeModel').checked});
+    $('knowledgeResult').replaceChildren();el('p',r.answer,$('knowledgeResult'));
+    for(const [i,c] of r.citations.entries())el('small','['+(i+1)+'] '+c.source+' · '+c.heading+' · '+c.chunk_id,$('knowledgeResult'));
+    el('p',(r.abstained?'未命中依据':'已返回原文依据')+' · '+r.mode,$('knowledgeResult')).className='fine-print';
+  },$('knowledgeAsk'));
+}
