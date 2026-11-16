@@ -25,16 +25,25 @@
       <textarea id="brief" maxlength="2000" placeholder="例如：向新会员介绍积分查询和专属客服，不添加未声明的优惠。">为新会员介绍积分查询与专属客服权益，强调自愿参与</textarea><div class="field-meta"><span>只填写可公开的业务信息</span><span id="briefCount">0 / 2000</span></div>
       <label for="audience">目标人群</label><select id="audience"><option value="all">全部客群</option><option value="new">新用户</option><option value="active">活跃用户</option><option value="dormant">沉睡用户</option></select>
       <label for="budget">活动预算 <span class="label-note">CNY</span></label><div class="input-with-prefix"><span>¥</span><input id="budget" type="number" value="10000" min="100" max="100000" step="100" inputmode="numeric"></div>
-      <details class="planning-fields" open><summary>策略约束与试点参数</summary>
+      <button id="create" class="primary full-width">创建并生成方案 <span aria-hidden="true">↗</span></button><p class="fine-print">活动预算用于方案约束，与模型调用费用独立。</p>
+      <details class="planning-fields"><summary>策略约束与试点参数</summary>
+      <p class="hint">完整示例：会员权益触达。先确定成功口径，再选择一个比较变量。</p>
+      <label for="comparisonAxis">本次只比较</label><select id="comparisonAxis"><option value="message">文案表达（渠道和频次相同）</option><option value="frequency">触达频次（统一文案，1/2/3次）</option><option value="channel">触达渠道（统一文案和频次）</option></select>
+      <label for="successDefinition">什么算一次有效转化？</label><input id="successDefinition" value="用户主动查询权益或联系专属客服" maxlength="300">
+      <label for="referenceMessage">频次/渠道实验的统一确认文案</label><textarea id="referenceMessage" maxlength="400" placeholder="仅比较文案时可留空；否则三套方案都使用此文案。"></textarea>
+      <label for="contactsPerUser">每人计划触达次数（1–3）</label><input id="contactsPerUser" type="number" value="1" min="1" max="3">
+      <fieldset class="channel-options"><legend>已确认可用的渠道</legend><label><input type="checkbox" value="manual" checked> 人工</label><label><input type="checkbox" value="sms"> 短信</label><label><input type="checkbox" value="in_app"> 站内</label></fieldset>
+      <label for="smsCost">短信每次单价（元；0未知）</label><input id="smsCost" type="number" min="0" max="1000" value="0" step="0.01">
+      <label for="appCost">站内每次单价（元；0未知）</label><input id="appCost" type="number" min="0" max="1000" value="0" step="0.01">
       <label for="planIntent">业务目标</label><select id="planIntent"><option value="education">权益认知</option><option value="acquisition">新客获取</option><option value="retention">用户留存</option><option value="reactivation">沉睡唤醒</option></select>
       <label for="knownBenefits">已确认的权益或服务 *</label><textarea id="knownBenefits" maxlength="1000" placeholder="写明实际权益；无优惠请写“不提供额外优惠”。">积分查询、专属客服；不提供额外优惠</textarea>
       <label for="planChannel">建议触达渠道（仅生成交接参数）</label><select id="planChannel"><option value="manual">人工触达</option><option value="sms">短信</option><option value="in_app">站内消息</option></select>
       <label for="planRegion">地区条件</label><select id="planRegion"><option value="all">不限地区</option><option value="north">北区</option><option value="south">南区</option><option value="east">东区</option><option value="west">西区</option></select>
-      <label for="unitCost">单人触达成本（元；0表示未知）</label><input id="unitCost" type="number" value="0" min="0" max="1000" step="0.01">
+      <label for="unitCost">默认/人工每次触达单价（元；0未知）</label><input id="unitCost" type="number" value="0" min="0" max="1000" step="0.01">
       <label for="pilotRatio">试点比例（5%–30%）</label><input id="pilotRatio" type="number" value="10" min="5" max="30">
       <label for="windowDays">建议观察天数（不自动计时）</label><input id="windowDays" type="number" value="7" min="3" max="14">
       <label class="check-label"><input id="enableHoldout" type="checkbox"> 保留10%不触达对照人群</label><p class="fine-print">名单执行地区、同意状态及对照组排除；渠道、节奏和观察窗口是交接建议，不执行真实投放。</p></details>
-      <button id="create" class="primary full-width">创建并生成方案 <span aria-hidden="true">↗</span></button><p class="fine-print">活动预算用于方案约束，与模型调用费用独立。</p>
+
     </section>
     <section class="panel history-panel"><div class="section-heading spread"><h2>最近计划</h2><span id="taskCount" class="count-pill">0</span></div><div id="tasks"><p class="empty-small">还没有计划，创建你的第一项任务。</p></div></section>
     <div class="side-note"><span>✧</span><p>AI 提供候选，关键决策由你确认。<br>所有演示用户均为合成数据。</p></div>
@@ -47,6 +56,8 @@
       <div class="route-choice" id="routeChoice" hidden><strong>选择一条决策路线</strong><p>单方案：在候选卡片中审批一套，再导出试点。A/B：先创建双臂试点，观察反馈后人工晋级。两条路线互斥。</p></div><div class="delivery-actions"><div><h3>名单交付</h3><p class="hint">确认方案后，先小范围试点，再进行排重交付。</p></div><div><button id="pilot" class="secondary" disabled>导出试点名单</button><button id="finalize" class="primary" disabled>全量排重交付 <span>↓</span></button></div></div><div id="artifacts" class="artifact-list"></div>
     </section>
     <section class="panel experiment-panel"><div class="section-heading spread"><div><div class="eyebrow">EXPERIMENT</div><h2>A/B 试点实验</h2></div><span class="subtle-tag">双臂互斥</span></div><p class="hint">比较前两套候选，在小样本中观察反馈，再由你决定胜出方案。</p><button id="experiment" class="secondary" disabled>创建双臂试点 <span>＋</span></button><div id="experimentView"></div><div class="experiment-note">试点数据用于演示，不作统计显著性或转化效果承诺。</div></section>
+    <section class="panel evaluation-panel"><div class="section-heading spread"><div><div class="eyebrow">REVIEW & EVIDENCE</div><h2>方案复盘与执行观察</h2></div><button id="downloadEvaluation" class="secondary" disabled>下载复盘 JSON</button></div><p class="hint">审批和导出不是送达证据。先记录送达，再记录同一来源的转化；结果仅描述已记录样本。</p><div id="evaluationSummary"><p class="hint">选择计划后查看。</p></div>
+      <details id="observationEditor" class="observation-editor"><summary>记录一条触达观察</summary><div class="form-grid"><label>名单与版本<select id="observationCohort"></select></label><label>名单中的用户<select id="observationUser"></select></label><label>观察类型<select id="observationOutcome"><option value="delivered">送达</option><option value="converted">转化</option></select></label><label>记录来源<select id="observationSource"><option value="demo">演示数据</option><option value="manual_observation">人工观察（未验真）</option></select></label><label>这是该用户第几次实际触达<input id="observationContacts" type="number" min="1" max="10" value="1"></label><label>送达实际费用（元，可留空）<input id="observationCost" type="number" min="0" step="0.01" max="100000"></label><label>观察时间（留空为现在）<input id="observationTime" type="datetime-local"></label></div><button id="saveObservation" class="secondary" disabled>记录观察</button><details class="batch-observations"><summary>批量记录当前名单的观察（JSON）</summary><label for="observationBatch">每次最多100条；方案、版本、阶段和来源使用上方选择</label><textarea id="observationBatch" rows="6" placeholder='[{"customer_id":1,"outcome":"delivered","occurred_at":"2026-11-16T08:00:00+08:00","contact_number":1,"actual_cost_cny":0.2}]'></textarea><button id="saveObservationBatch" class="secondary">逐条校验并记录</button><p class="fine-print">有效记录会保留；失败行可按返回原因修正后重试。相同事件ID用于幂等重试。</p></details><p class="fine-print">仅允许当前名单中的合成用户 ID。人工填写不等于第三方系统回执；线上预览只记录演示数据。</p></details><pre id="observationBatchResult" class="batch-result" aria-live="polite" hidden></pre></section>
     <section class="panel event-panel"><details><summary><span><span class="live-dot"></span>执行记录</span><small>查看阶段与原始事件</small></summary><pre id="events">等待任务开始…</pre></details></section>
   </article>
   <aside class="right-column support">
@@ -60,6 +71,8 @@
 </main>
 <footer><span><strong>FlowPilot</strong> · 让方案有依据，让交付可追踪。</span><a href="https://github.com/dellya-zhang/FlowPilot" target="_blank" rel="noopener noreferrer">开源项目 ↗</a></footer>
 <script src="./planning.js"></script>
+<script src="./operations.js"></script>
+<script src="./operations-demo.js"></script>
 <script src="./demo.js"></script>
 <script src="./app.js"></script>
 <script src="./workspace.js"></script>

@@ -17,7 +17,7 @@ with sync_playwright() as p:
  assert '权益依据' in page.locator('.strategy-preview').first.inner_text()
  page.click('#experiment')
  page.wait_for_selector('#experimentView button')
- assert page.locator('.candidate button:enabled').count() == 0
+ assert page.locator('.candidate [data-action=approve]:enabled').count() == 0
  page.get_by_role('button',name='记录一名模拟转化').first.click()
  page.get_by_role('button',name='人工选为胜出方案').first.click()
  page.wait_for_function("() => !document.getElementById('finalize').disabled")
@@ -39,8 +39,8 @@ with sync_playwright() as p:
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), page.evaluate('({view:document.body.dataset.view,w:innerWidth,sw:document.documentElement.scrollWidth,wide:[...document.querySelectorAll("body *")].filter(x=>x.getBoundingClientRect().right>innerWidth).map(x=>x.tagName+"."+x.className).slice(0,15)})')
  page.click('[data-scenario="member"]')
  page.click('#create')
- page.wait_for_function("() => document.querySelectorAll('.candidate button:enabled').length===3")
- page.locator('.candidate button').first.click()
+ page.wait_for_function("() => document.querySelectorAll('.candidate [data-action=approve]:enabled').length===3")
+ page.locator('.candidate [data-action="approve"]').first.click()
  page.click('#pilot')
  page.wait_for_function("() => !document.getElementById('finalize').disabled")
  page.click('#finalize')

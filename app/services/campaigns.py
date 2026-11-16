@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 import csv
 import hashlib
 import io
@@ -8,11 +9,13 @@ from fastapi import HTTPException
 from sqlalchemy import select, delete, update
 from app.agents.marketing import marketing_graph
 from app.db.base import SessionLocal
-from app.models.entities import Campaign, Candidate, Event, Customer, Artifact, Experiment, CandidatePlan, PlanningContext
+from app.models.entities import Campaign, Candidate, Event, Customer, Artifact, Experiment, CandidatePlan, PlanningContext, PlanRevision, DecisionBinding, ArtifactBinding
 from app.services.planning import planning_input, audience_pool, PlanNeedsClarification
 from app.schemas.contracts import PlanningInput
 from collections import Counter
 from app.services.rules import check_marketing
+from app.services.strategy_design import variants
+from app.services.versions import current_snapshot, save_revision
 from app.services.storage import put_blob, get_verified_blob
 from botocore.exceptions import BotoCoreError
 from app.core.config import get_settings
@@ -53,12 +56,14 @@ async def generate_candidates(campaign_id: str, gate=None):
                 return
             # Idempotent recovery: discard partial outputs from an interrupted run.
             await fence(db, campaign_id, owner)
+            await db.execute(delete(PlanRevision).where(PlanRevision.candidate_id.in_(select(Candidate.id).where(Candidate.campaign_id == campaign_id))))
             await db.execute(delete(CandidatePlan).where(CandidatePlan.candidate_id.in_(select(Candidate.id).where(Candidate.campaign_id == campaign_id))))
             await db.execute(delete(Candidate).where(Candidate.campaign_id == campaign_id))
             await db.commit()
-            await emit(db, campaign_id, "generation.started", {"count": 3, "owner": owner}, owner=owner)
-            sem = asyncio.Semaphore(2)
             planning = await planning_input(db, campaign_id)
+            selected_variants = variants(planning)
+            await emit(db, campaign_id, "generation.started", {"count": len(selected_variants), "owner": owner}, owner=owner)
+            sem = asyncio.Semaphore(2)
             eligible, held = await audience_pool(db, campaign)
 
             async def one(variant: int):
@@ -82,7 +87,7 @@ async def generate_candidates(campaign_id: str, gate=None):
 
             successes = 0
             needs_clarification = False
-            children = [asyncio.create_task(safe_one(v)) for v in (1, 2, 3)]
+            children = [asyncio.create_task(safe_one(v)) for v in selected_variants]
             try:
                 for future in asyncio.as_completed(children):
                     item = await future
@@ -100,6 +105,8 @@ async def generate_candidates(campaign_id: str, gate=None):
                     cid = candidate.id
                     if data.get("plan_data"):
                         db.add(CandidatePlan(candidate_id=cid, data=data["plan_data"]))
+                        await db.flush()
+                        await save_revision(db, await current_snapshot(db,candidate), "首次生成")
                     await emit(db, campaign_id, "candidate.ready", {"variant": variant, "candidate_id": cid}, owner=owner)
                     successes += 1
             finally:
@@ -138,18 +145,26 @@ async def generate_candidates(campaign_id: str, gate=None):
             log.warning("Lease release failed; expiry will permit recovery: %s", campaign_id)
 
 
-def generate_csv(rows: list[Customer]) -> bytes:
+def generate_csv(rows: list[Customer], binding=None) -> bytes:
     stream = io.StringIO(newline="")
     writer = csv.writer(stream)
-    writer.writerow(["customer_id", "segment", "region"])
+    writer.writerow(["customer_id", "segment", "region"]+(["candidate_id","plan_revision","channel","contacts_per_user","message"] if binding else []))
     for row in rows:
-        writer.writerow([row.id, row.segment, row.region])
+        values=[row.id,row.segment,row.region]
+        if binding:
+            snapshot=binding['snapshot'];plan=snapshot.get('plan_data') or {};strategy=plan.get('strategy',{})
+            message=snapshot['message']
+            if message.lstrip().startswith(('=','+','-','@')):message="'"+message
+            values += [binding['candidate_id'],binding['revision'],strategy.get('channel','manual'),strategy.get('contacts_per_user',1),message]
+        writer.writerow(values)
     return stream.getvalue().encode("utf-8-sig")
 
 
 async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
     existing = await db.scalar(select(Artifact).where(Artifact.campaign_id == campaign.id, Artifact.kind == kind))
     if existing:
+        old_binding=await db.get(ArtifactBinding, existing.id)
+        existing.binding=old_binding.data if old_binding else None
         return existing
     customers, _ = await audience_pool(db, campaign)
     pilot = await db.scalar(select(Artifact).where(Artifact.campaign_id == campaign.id, Artifact.kind == "pilot"))
@@ -169,7 +184,9 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
         size = max(1, __import__("math").ceil(len(customers)*planning["pilot_ratio"])) if planning else 25
         customers = rng.sample(customers, k=min(size, len(customers)))
         customers.sort(key=lambda c: c.id)
-    blob = generate_csv(customers)
+    decision=await db.get(DecisionBinding,campaign.id)
+    binding=decision.data if decision else None
+    blob = generate_csv(customers,binding)
     digest = hashlib.sha256(blob).hexdigest()
     key = f"campaigns/{campaign.id}/{kind}-{digest[:12]}.csv"
     try:
@@ -179,6 +196,9 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
     artifact = Artifact(campaign_id=campaign.id, kind=kind, key=key, sha256=digest, row_count=len(customers))
     db.add(artifact)
     await db.flush()
+    if binding:
+        artifact.binding={**binding,"exported_at":datetime.now(timezone.utc).isoformat(),"kind":kind,"audience_ids":[c.id for c in customers]}
+        db.add(ArtifactBinding(artifact_id=artifact.id,data=artifact.binding))
     return artifact
 
 

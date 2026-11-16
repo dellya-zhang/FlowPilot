@@ -9,7 +9,7 @@
       "started_owners": 2,
       "completed_executions": 1,
       "unique_candidates": 3,
-      "recovery_seconds": 1.719
+      "recovery_seconds": 2.25
     },
     "cross_process_requests": {
       "generate_requests": 60,

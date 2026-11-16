@@ -12,18 +12,19 @@
   const event = (cid,name,payload={}) => (db.events[cid] ||= []).push({id:db.next++,name,payload});
   const people = audience => Array.from({length:500},(_,i)=>({id:i+1,segment:['new','active','dormant'][i%3],region:['north','south','east','west'][i%4]})).filter(p=>p.id%9!==0&&(audience==='all'||p.segment===audience));
   const hash = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
-  function rawPool(c){return people(c.audience).filter(p=>!c.planning||c.planning.region==='all'||p.region===c.planning.region);}
-  function pool(c){const rows=rawPool(c);return c.planning?.enable_holdout?rows.slice(Math.floor(rows.length*c.planning.holdout_ratio)):rows;}
+  function rawPool(c){if(c.audience_snapshot)return [...c.audience_snapshot.eligible,...c.audience_snapshot.holdout];return people(c.audience).filter(p=>!c.planning||c.planning.region==='all'||p.region===c.planning.region);}
+  function pool(c){if(c.audience_snapshot)return c.audience_snapshot.eligible;const rows=rawPool(c);return c.planning?.enable_holdout?rows.slice(Math.floor(rows.length*c.planning.holdout_ratio)):rows;}
   function demoPlan(c,variant){
     if(!c.planning)return null;
     const p=c.planning,count=pool(c).length,focus=['权益说明','使用场景','参与指引'][variant-1];
     const rules=[{field:'consent',op:'eq',value:true}];if(c.audience!=='all')rules.push({field:'segment',op:'eq',value:c.audience});if(p.region!=='all')rules.push({field:'region',op:'eq',value:p.region});
-    return {schema_version:1,revision:1,planning_source:'browser_simulation',goal:{intent:p.intent,description:c.brief,budget_cny:c.budget},segment:{dsl:{all:rules},estimated_size:rawPool(c).length,treatment_size:count,holdout_size:rawPool(c).length-count},strategy:{channel:p.channel,message_focus:focus,rationale:'比较表达角度，不预测转化效果。',execution_mode:'handoff_only',pilot_schedule:[{round:1,ratio:p.pilot_ratio,label:'试点'},{round:2,ratio:1-p.pilot_ratio,label:'剩余全量'}],ab_experiment:{test_ratio:p.pilot_ratio,window_days:p.window_days,window_enforced:false}},offer_strategy:{verified_benefits:p.known_benefits,source:'operator_input',additional_incentives:false},cost_estimate:{unit_cost_cny:p.unit_cost_cny,source:p.unit_cost_cny?'operator_input':'not_provided',total_cny:p.unit_cost_cny?Math.round(count*p.unit_cost_cny*10000)/10000:null},compliance:{decision:'PASS'},trace:['goal_understanding','segment_selection','strategy_planning','planning_compliance','content_preview','content_compliance','plan_output'],limitations:['浏览器模板模拟，不运行真实 LangGraph 或模型','渠道、观察窗口与节奏只作交接参数，不执行投放']};
+    return window.enrichOperationsDemo({schema_version:1,revision:1,planning_source:'browser_simulation',goal:{intent:p.intent,description:c.brief,budget_cny:c.budget},segment:{dsl:{all:rules},estimated_size:rawPool(c).length,treatment_size:count,holdout_size:rawPool(c).length-count},strategy:{channel:p.channel,message_focus:focus,rationale:'比较表达角度，不预测转化效果。',execution_mode:'handoff_only',pilot_schedule:[{round:1,ratio:p.pilot_ratio,label:'试点'},{round:2,ratio:1-p.pilot_ratio,label:'剩余全量'}],ab_experiment:{test_ratio:p.pilot_ratio,window_days:p.window_days,window_enforced:false}},offer_strategy:{verified_benefits:p.known_benefits,source:'operator_input',additional_incentives:false},cost_estimate:{unit_cost_cny:p.unit_cost_cny,source:p.unit_cost_cny?'operator_input':'not_provided',total_cny:p.unit_cost_cny?Math.round(count*p.unit_cost_cny*10000)/10000:null},compliance:{decision:'PASS'},trace:['goal_understanding','segment_selection','strategy_planning','planning_compliance','content_preview','content_compliance','plan_output'],limitations:['浏览器模板模拟，不运行真实 LangGraph 或模型','渠道、观察窗口与节奏只作交接参数，不执行投放']},c,variant);
   }
   const originalFetch = window.fetch.bind(window);
   const headers = {'Content-Type':'application/json'};
   const response = (data,status=200) => new Response(JSON.stringify(data),{status,headers});
   async function dispatch(url, method, data) {
+    const operation=await window.dispatchOperationsDemo({db,save,id,error,response,event,pool,rawPool,demoPlan,hash},url,method,data);if(operation)return operation;
     const parts=url.pathname.split('/').filter(Boolean).slice(2), [resource,cid,action]=parts;
     if(resource==='health')return response({status:'browser-demo'});
     if(resource==='campaigns') {
@@ -73,8 +74,12 @@
           let rows=pool(c),pilot=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind==='pilot');
           if(kind==='pilot')rows=rows.slice(0,c.planning?Math.max(1,Math.ceil(rows.length*c.planning.pilot_ratio)):25);
           else {const exposed=new Set(exp?Object.values(exp.arms).flat():pilot?.users||[]);rows=rows.filter(p=>!exposed.has(p.id));}
-          const csv='\ufeffcustomer_id,segment,region\r\n'+rows.map(p=>[p.id,p.segment,p.region].join(',')).join('\r\n');
-          a={id:id(),campaign_id:cid,kind,row_count:rows.length,sha256:await hash(csv),csv,users:rows.map(p=>p.id)};db.artifacts[a.id]=a;
+          const binding=c.decision?{...c.decision,exported_at:new Date().toISOString(),kind,audience_ids:rows.map(p=>p.id)}:null;
+          const quote=value=>'"'+String(value).replaceAll('"','""')+'"';
+          const safe=value=>String(value).trimStart().match(/^[=+@-]/)?"'"+value:value;
+          const columns=['customer_id','segment','region'].concat(binding?['candidate_id','plan_revision','channel','contacts_per_user','message']:[]);
+          const csv='\ufeff'+columns.join(',')+'\r\n'+rows.map(p=>[p.id,p.segment,p.region].concat(binding?[binding.candidate_id,binding.revision,binding.snapshot.plan_data?.strategy.channel||'manual',binding.snapshot.plan_data?.strategy.contacts_per_user||1,safe(binding.snapshot.message)]:[]).map(quote).join(',')).join('\r\n');
+          a={id:id(),campaign_id:cid,kind,row_count:rows.length,sha256:await hash(csv),binding,csv,users:rows.map(p=>p.id)};db.artifacts[a.id]=a;
         }
         c.status=kind==='pilot'?'PILOT_EXPORTED':'COMPLETED';event(cid,kind==='pilot'?'pilot.exported':'campaign.completed',{rows:a.row_count});save();
         const {csv,...view}=a;return response(view);

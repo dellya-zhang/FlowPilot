@@ -1,21 +1,29 @@
 """Local A/B experiment: disjoint cohorts, deduplicated feedback, human promotion."""
 import hashlib
+from datetime import datetime, timezone
 import random
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update, func
 from app.db.base import session_dep
-from app.models.entities import Campaign, Candidate, Customer, Experiment, Conversion
+from app.schemas.contracts import InputModel
+from app.models.entities import Campaign, Candidate, Customer, Experiment, Conversion, ExperimentBinding
 from app.services.campaigns import require_campaign, emit
-from app.services.planning import audience_pool, planning_input
+from app.services.planning import audience_pool, planning_input, freeze_audience
+from app.services.versions import checked_snapshot, comparison_contract, bind_decision
 
 router = APIRouter(prefix="/api/v1/experiments", tags=["experiments"])
 
 
 class ExperimentInput(BaseModel):
     campaign_id: str
+    expected_revisions: dict[str,int] | None = None
     candidate_ids: list[str] = Field(min_length=2, max_length=2)
     per_arm: int | None = Field(default=None, ge=1, le=50)
+
+
+class PromotionInput(InputModel):
+    decision_reason: str | None = Field(default=None,max_length=1000)
 
 
 class Feedback(BaseModel):
@@ -45,6 +53,9 @@ async def create(data: ExperimentInput, db=Depends(session_dep)):
         Candidate.campaign_id == campaign.id, Candidate.id.in_(ids)))).all())
     if len(ids) != 2 or len(candidates) != 2:
         raise HTTPException(422, "Choose two distinct candidates from this campaign")
+    snapshots=[await checked_snapshot(db,next(c for c in candidates if c.id==cid),(data.expected_revisions or {}).get(cid)) for cid in data.candidate_ids]
+    comparison=comparison_contract(snapshots)
+    await freeze_audience(db,campaign)
     rows, _ = await audience_pool(db, campaign)
     customers = [c.id for c in rows]
     planning = await planning_input(db, campaign.id)
@@ -55,6 +66,8 @@ async def create(data: ExperimentInput, db=Depends(session_dep)):
     arms = {cid: customers[i * per_arm:(i + 1) * per_arm] for i, cid in enumerate(data.candidate_ids)}
     exp = Experiment(campaign_id=campaign.id, arms=arms)
     db.add(exp)
+    await db.flush()
+    db.add(ExperimentBinding(experiment_id=exp.id,data={"bound_at":datetime.now(timezone.utc).isoformat(),"snapshots":{s["candidate_id"]:s for s in snapshots},"comparison":comparison}))
     await db.commit()
     return {"id": exp.id, "arms": arms, "status": exp.status}
 
@@ -89,12 +102,13 @@ async def report(eid: str, db=Depends(session_dep)):
         Conversion.experiment_id == eid).group_by(Conversion.arm))).all())
     arms = [{"candidate_id": cid, "users": users, "conversions": counts.get(cid, 0),
              "rate": counts.get(cid, 0) / len(users)} for cid, users in exp.arms.items()]
-    return {"id": eid, "status": exp.status, "winner": exp.winner, "arms": arms,
+    binding=await db.get(ExperimentBinding,eid)
+    return {"binding":binding.data if binding else None,"id": eid, "status": exp.status, "winner": exp.winner, "arms": arms,
             "note": "描述性转化率，不代表统计显著性；使用模拟回流，必须人工选择胜出方案。"}
 
 
 @router.post("/{eid}/promote")
-async def promote(eid: str, candidate_id: str, db=Depends(session_dep)):
+async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Body(default=None), db=Depends(session_dep)):
     exp = await locked(db, eid)
     if exp.status != "RUNNING":
         if exp.winner == candidate_id:
@@ -107,6 +121,10 @@ async def promote(eid: str, candidate_id: str, db=Depends(session_dep)):
     campaign = await require_campaign(db, exp.campaign_id)
     if campaign.status != "WAITING_APPROVAL":
         raise HTTPException(409, "Campaign already advanced")
+    binding=await db.get(ExperimentBinding,eid)
+    candidate=await db.get(Candidate,candidate_id)
+    snapshot=binding.data['snapshots'][candidate_id] if binding else await checked_snapshot(db,candidate)
+    await bind_decision(db,campaign,snapshot,'experiment:'+eid,data.decision_reason if data else None)
     campaign.selected_candidate_id = candidate_id
     campaign.status = "PILOT_EXPORTED"
     exp.winner, exp.status = candidate_id, "PROMOTED"

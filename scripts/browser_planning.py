@@ -20,6 +20,7 @@ def check(browser,url,label):
     page=context.new_page();errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(url)
+    page.locator('.planning-fields>summary').click()
     page.fill('#knownBenefits','')
     page.click('#create')
     page.wait_for_function("() => document.getElementById('phaseBadge').textContent.includes('等待补充')")
@@ -31,7 +32,7 @@ def check(browser,url,label):
     page.check('#enableHoldout')
     page.click('#clarifyPlan');page.wait_for_selector('#resumePlan:visible')
     page.click('#resumePlan')
-    page.wait_for_function("() => document.querySelectorAll('.candidate button:enabled').length===3")
+    page.wait_for_function("() => document.querySelectorAll('.candidate [data-action=approve]:enabled').length===3")
     assert page.locator('.strategy-preview').count()==3
     page.locator('.strategy-preview details').first.locator('summary').first.click()
     text=page.locator('.strategy-preview').first.inner_text()
@@ -40,7 +41,7 @@ def check(browser,url,label):
     # Simulate losing tab-local cache: server/local persistent state is the source.
     page.evaluate("() => Object.keys(sessionStorage).filter(k=>k.startsWith('exp-')).forEach(k=>sessionStorage.removeItem(k))")
     page.reload();page.locator('#tasks button').first.click();page.wait_for_selector('.experiment-arm')
-    assert page.locator('.candidate button:enabled').count()==0
+    assert page.locator('.candidate [data-action=approve]:enabled').count()==0
     page.get_by_role('button',name='人工选为胜出方案').first.click()
     page.wait_for_function("() => !document.getElementById('finalize').disabled")
     page.click('#finalize')
@@ -60,24 +61,32 @@ def check(browser,url,label):
     context.close()
 
 
-if __name__=='__main__':
+def run_checks(checker=check):
     with tempfile.TemporaryDirectory() as work:
         work=Path(work);apiport=port()
         env={**os.environ,'AI_PROVIDER':'mock','DATABASE_URL':'sqlite+aiosqlite:///'+str(work/'test.db'),'ARTIFACT_DIR':str(work/'objects'),'REDIS_URL':'','S3_ENDPOINT_URL':'','ACCESS_TOKEN':'','LLM_AUDIT_PATH':str(work/'no-paid.jsonl')}
         process=launch(env,apiport)
         try:
+            is_ready=False
             for _ in range(100):
+                if process.poll() is not None:raise RuntimeError("Mock backend exited during startup")
                 try:
                     with urllib.request.urlopen(f'http://127.0.0.1:{apiport}/api/v1/health',timeout=.5) as r:
-                        if r.status==200:break
+                        if r.status==200:
+                            is_ready=True;break
                 except OSError:time.sleep(.1)
+            if not is_ready:raise RuntimeError('Mock backend readiness timed out')
             with ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'web'))) as server:
                 thread=Thread(target=server.serve_forever,daemon=True);thread.start()
                 try:
                     with sync_playwright() as p:
                         browser=p.chromium.launch(headless=True,channel='msedge')
-                        check(browser,f'http://127.0.0.1:{server.server_port}/?demo=1','static')
-                        check(browser,f'http://127.0.0.1:{apiport}/','backend')
+                        checker(browser,f'http://127.0.0.1:{server.server_port}/?demo=1','static')
+                        checker(browser,f'http://127.0.0.1:{apiport}/','backend')
                         browser.close()
                 finally:server.shutdown();thread.join(timeout=2)
         finally:stop(process)
+
+
+if __name__=='__main__':
+    run_checks()
