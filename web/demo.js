@@ -127,8 +127,8 @@
     const banner=document.createElement('section');banner.className='demo-banner';
     const text=document.createElement('span');text.textContent='在线交互预览 · 浏览器模拟后端，数据仅保存在本机，不调用模型、不发送真实营销或退款。';
     const reset=document.createElement('button');reset.textContent='重置演示';reset.onclick=()=>{for(const c of db.campaigns)sessionStorage.removeItem('exp-'+c.id);localStorage.removeItem(key);sessionStorage.removeItem('sid');location.reload();};
-    const guide=document.createElement('a');guide.href='https://github.com/dellya-zhang/temp#使用指南';guide.textContent='完整项目与使用指南 ↗';
+    const guide=document.createElement('a');guide.href='https://github.com/dellya-zhang/FlowPilot#使用指南';guide.textContent='完整项目与使用指南 ↗';
     banner.append(text,reset,guide);document.querySelector('header').after(banner);
-    const api=document.getElementById('apiLink');api.href='https://github.com/dellya-zhang/temp#快速启动完整后端';api.textContent='启动完整后端 ↗';
+    const api=document.getElementById('apiLink');api.href='https://github.com/dellya-zhang/FlowPilot#快速启动完整后端';api.textContent='启动完整后端 ↗';
   });
 })();

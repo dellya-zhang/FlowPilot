@@ -1,12 +1,12 @@
 # FlowPilot · 智能运营与 Agent 工作台
 
-[![CI](https://github.com/dellya-zhang/temp/actions/workflows/ci.yml/badge.svg)](https://github.com/dellya-zhang/temp/actions/workflows/ci.yml)
-[![Interactive demo](https://img.shields.io/badge/demo-在线交互预览-94cb65)](https://dellya-zhang.github.io/temp/)
+[![CI](https://github.com/dellya-zhang/FlowPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/dellya-zhang/FlowPilot/actions/workflows/ci.yml)
+[![Interactive demo](https://img.shields.io/badge/demo-在线交互预览-94cb65)](https://dellya-zhang.github.io/FlowPilot/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](pyproject.toml)
 
 **面向营销运营与客服协作的本地可运行 Agent 工作台。** 输入营销目标，生成候选、人工审批、开展双臂试点，最终下载排重名单；同时提供本地政策知识库检索、引用摘录与敏感操作确认。
 
-**[打开白色交互工作台 →](https://dellya-zhang.github.io/temp/)** · [用户操作指南](docs/用户操作指南.md) · [架构设计](docs/设计映射与架构.md) · [测试报告](#测试与验证)
+**[打开白色交互工作台 →](https://dellya-zhang.github.io/FlowPilot/)** · [用户操作指南](docs/用户操作指南.md) · [架构设计](docs/设计映射与架构.md) · [测试报告](#测试与验证)
 
 > 在线演示在浏览器模拟后端，数据仅保存在访问者本机，不调用模型或真实业务服务。完整 Python 后端、数据库、LangGraph 和可选 DeepSeek 接入包含在本仓库，可按下文启动。
 
@@ -14,7 +14,7 @@
 
 ## 三分钟体验
 
-1. 打开 **[在线交互演示](https://dellya-zhang.github.io/temp/)**，选择“新会员权益介绍”或“沉睡用户唤醒”。场景只填入示例，不会自动创建任务。
+1. 打开 **[在线交互演示](https://dellya-zhang.github.io/FlowPilot/)**，选择“新会员权益介绍”或“沉睡用户唤醒”。场景只填入示例，不会自动创建任务。
 2. 点击 **创建并生成方案**，比较三套候选。页面会随任务阶段提示下一步。
 3. 选择一条路线：**单方案审批 → 试点 → 全量交付**，或 **A/B 双臂 → 模拟反馈 → 人工晋级 → 全量交付**。两条路线互斥。
 4. 在产物区下载 CSV；从顶部导航切换到 **客服协作**，体验政策咨询和操作确认。
@@ -23,7 +23,7 @@
 
 ## 核心能力
 
-- **目标驱动的方案生成**：围绕活动目标、人群和预算生成候选，人工决定采用哪一套。
+- **目标驱动的方案生成**：按活动目标与人群生成候选，预算执行固定阈值校验，人工决定采用哪一套。
 - **两条清晰的决策路线**：单方案试点或互斥 A/B 分臂，选定路线后按阶段推进。
 - **可核验的交付**：下载试点与全量 CSV，全量排除试点用户；执行记录保留阶段事件。
 - **咨询与操作分离**：政策咨询不产生退款操作；申请必须由用户确认，知识库可返回政策引用。
@@ -48,7 +48,7 @@ flowchart LR
 |---|---|---|
 | 填写活动目标、人群、预算 | 三套候选按完成顺序出现 | LangGraph、asyncio、有界并发、结构化输出 |
 | 审批某个候选 | 状态推进至可交付试点 | SQL 条件更新、人工确认 |
-| 导出试点、全量名单 | 下载 CSV，查看行数与哈希 | consent 过滤、固定种子抽样、试点排重、SHA256 |
+| 导出试点、全量名单 | 下载 CSV，查看行数；API 提供哈希 | consent 过滤、固定种子抽样、试点排重、SHA256 |
 | 创建 A/B 双臂试点 | 展示互斥客群和转化情况 | 事件去重、描述性转化率、人工晋级 |
 | 记录模拟转化并晋级 | 胜出方案可全量交付 | 排除两臂所有试点用户 |
 | 咨询退款政策、申请退款 | 政策回答或确认/取消按钮 | 确定性路由、事实来源、待确认状态 |
@@ -60,7 +60,7 @@ flowchart LR
 
 ### 路线 A：单方案交付
 
-1. 在[在线工作台](https://dellya-zhang.github.io/temp/)输入：`为新会员介绍积分查询与专属客服权益，不提供额外折扣`。
+1. 在[在线工作台](https://dellya-zhang.github.io/FlowPilot/)输入：`为新会员介绍积分查询与专属客服权益，不提供额外折扣`。
 2. 选择人群与预算，点击 **创建并生成方案**，等待三套候选显示。
 3. 点击其中一套的 **审批此方案**，确认状态变为“可交付试点”。
 4. 点击 **导出试点名单**，再在产物区下载 `pilot` CSV。
@@ -97,8 +97,8 @@ flowchart LR
 需要 Python 3.11+。默认 Mock 模式无需模型密钥，也不需要 Docker、Redis 或 PostgreSQL。
 
 ```bash
-git clone https://github.com/dellya-zhang/temp.git
-cd temp
+git clone https://github.com/dellya-zhang/FlowPilot.git
+cd FlowPilot
 python -m venv .venv
 ```
 
@@ -235,7 +235,7 @@ python scripts/multiprocess_check.py
 - **已知改进点**：信息不足时缺少完整澄清阶段；拒绝说明可能成为候选；Critic为启发式评分；关键词护栏存在误报。
 - **部署边界**：同机文件锁依赖共享路径；租约依赖同机时钟；副作用不保证精确一次；`create_all`不替代版本化迁移。
 
-[优化路线与验收标准](docs/优化路线.md) · [变更记录](CHANGELOG.md)
+[项目逻辑审计与设计差异](docs/项目逻辑审计与设计差异.md) · [优化路线与验收标准](docs/优化路线.md) · [变更记录](CHANGELOG.md)
 
 ## 目录
 
