@@ -11,6 +11,7 @@ def check(browser,url,label):
     page=context.new_page();errors=[]
     page.on('pageerror',lambda error:errors.append(str(error)))
     page.goto(url)
+    page.locator('[data-view="marketing"]').click()
     page.click('[data-scenario="member"]')
     page.locator('.planning-fields>summary').click()
     page.select_option('#comparisonAxis','frequency')

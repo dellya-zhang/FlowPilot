@@ -7,17 +7,18 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'">
   <meta name="description" content="FlowPilot 智能运营工作台：方案生成、人工决策、实验验证与交付。本地后端可安全接入模型。">
   <title>FlowPilot · 智能运营与 Agent 工作台</title>
-  <link rel="stylesheet" href="./styles.css?v=ops-20261116-1">
+  <link rel="stylesheet" href="./styles.css?v=case-20261117-1">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="./" aria-label="FlowPilot 首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>FlowPilot<span>智能运营与 Agent 工作台</span></strong></a>
-  <nav aria-label="主导航"><a class="nav-active" href="#marketing" data-view="marketing">营销计划</a><a href="#support" data-view="support">客服协作</a><a href="#knowledge" data-view="knowledge">政策知识库</a><a href="#settings" data-view="settings">模型设置</a><a href="https://github.com/dellya-zhang/FlowPilot/blob/main/docs/用户操作指南.md" target="_blank" rel="noopener noreferrer">使用指南 ↗</a><a id="apiLink" href="/docs" target="_blank" rel="noopener noreferrer">API 文档 ↗</a></nav>
+  <nav aria-label="主导航"><a href="#overview" data-view="overview">项目概览</a><a class="nav-active" href="#marketing" data-view="marketing">营销计划</a><a href="#support" data-view="support">客服协作</a><a href="#knowledge" data-view="knowledge">政策知识库</a><a href="#settings" data-view="settings">模型设置</a><a href="https://github.com/dellya-zhang/FlowPilot/blob/main/docs/用户操作指南.md" target="_blank" rel="noopener noreferrer">使用指南 ↗</a><a id="apiLink" href="/docs" target="_blank" rel="noopener noreferrer">API 文档 ↗</a></nav>
   <span class="environment" id="environmentBadge"><i></i> 本地工作区</span>
 </header>
 <div class="page-heading"><div><div class="eyebrow">OPERATIONS WORKSPACE</div><h1>从运营目标，到可追踪的交付。</h1><p>填写目标 → 比较候选 → 人工决策 → 试点验证 → 排重交付。</p></div><a class="text-link" href="https://github.com/dellya-zhang/FlowPilot" target="_blank" rel="noopener noreferrer">查看项目源码 <span>↗</span></a></div>
 <p id="notice" class="notice" role="alert" aria-live="polite"></p>
 <section class="journey-intro" id="journeyIntro" aria-label="体验指南"><div><span class="eyebrow">START HERE</span><h2>先选一个场景，体验完整流程</h2><p>营销计划负责方案与名单交付；客服处理咨询和确认；知识库提供政策原文依据。</p></div><div class="scenario-list"><button class="scenario" data-scenario="member"><strong>01 · 新会员权益介绍</strong><span>生成候选 → 审批 → 试点 → 下载名单</span></button><button class="scenario" data-scenario="experiment"><strong>02 · 沉睡用户唤醒</strong><span>生成候选 → A/B 双臂 → 人工晋级 → 交付</span></button><button class="scenario" data-scenario="support"><strong>03 · 退款咨询与确认</strong><span>了解政策 → 提出申请 → 确认或取消</span></button></div><p id="scenarioHint" class="hint" aria-live="polite">场景只填入示例目标；点击“创建并生成方案”才会创建任务。</p></section>
+<section id="projectOverview" class="project-overview" aria-label="项目概览"></section>
 <main id="workspace" class="workspace">
   <aside class="left-column">
     <section class="panel brief-panel"><div class="section-heading"><span class="section-icon">＋</span><h2>创建营销计划</h2></div><p class="hint">写清目标和已知权益，让方案更有依据。</p>
@@ -70,11 +71,12 @@
   </aside>
 </main>
 <footer><span><strong>FlowPilot</strong> · 让方案有依据，让交付可追踪。</span><a href="https://github.com/dellya-zhang/FlowPilot" target="_blank" rel="noopener noreferrer">开源项目 ↗</a></footer>
-<script src="./planning.js?v=ops-20261116-1"></script>
-<script src="./operations.js?v=ops-20261116-1"></script>
-<script src="./operations-demo.js?v=ops-20261116-1"></script>
-<script src="./demo.js?v=ops-20261116-1"></script>
-<script src="./app.js?v=ops-20261116-1"></script>
-<script src="./workspace.js?v=ops-20261116-1"></script>
+<script src="./planning.js?v=case-20261117-1"></script>
+<script src="./operations.js?v=case-20261117-1"></script>
+<script src="./operations-demo.js?v=case-20261117-1"></script>
+<script src="./demo.js?v=case-20261117-1"></script>
+<script src="./app.js?v=case-20261117-1"></script>
+<script src="./showcase.js?v=case-20261117-1"></script>
+<script src="./workspace.js?v=case-20261117-1"></script>
 </body>
 </html>

@@ -20,6 +20,7 @@ def check(browser,url,label):
     page=context.new_page();errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(url)
+    page.locator('[data-view="marketing"]').click()
     page.locator('.planning-fields>summary').click()
     page.fill('#knownBenefits','')
     page.click('#create')

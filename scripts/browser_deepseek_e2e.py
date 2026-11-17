@@ -6,7 +6,7 @@ with sync_playwright() as p:
  page=browser.new_page(viewport={'width':1440,'height':1100},device_scale_factor=1)
  errors=[]
  page.on('pageerror',lambda error:errors.append(str(error)))
- page.goto('http://127.0.0.1:8018')
+ page.goto('http://127.0.0.1:8018/#marketing')
  page.click('#create')
  page.wait_for_selector('.candidate',timeout=20000)
  page.wait_for_function("() => document.querySelectorAll('.candidate').length===3")

@@ -1,0 +1,2353 @@
+{
+  "source": "Recorded browser-template simulation; not a backend/model run or business result",
+  "campaign": {
+    "id": "d411d28ae078496b8c0198b9d9f07062",
+    "brief": "为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与",
+    "audience": "new",
+    "budget": 10000,
+    "status": "COMPLETED",
+    "selected_candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+    "planning": {
+      "scenario": "membership_benefits",
+      "comparison_axis": "message",
+      "reference_message": "",
+      "success_definition": "用户主动查询权益或联系专属客服",
+      "contacts_per_user": 1,
+      "available_channels": [
+        "manual"
+      ],
+      "channel_costs": {
+        "manual": 0,
+        "sms": 0,
+        "in_app": 0
+      },
+      "intent": "education",
+      "known_benefits": "积分查询、专属客服；不提供额外优惠",
+      "channel": "manual",
+      "region": "all",
+      "unit_cost_cny": 0,
+      "pilot_ratio": 0.1,
+      "window_days": 7,
+      "enable_holdout": false,
+      "holdout_ratio": 0.1
+    },
+    "audience_snapshot": {
+      "eligible": [
+        {
+          "id": 1,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 4,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 7,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 10,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 13,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 16,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 19,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 22,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 25,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 28,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 31,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 34,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 37,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 40,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 43,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 46,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 49,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 52,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 55,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 58,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 61,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 64,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 67,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 70,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 73,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 76,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 79,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 82,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 85,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 88,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 91,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 94,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 97,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 100,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 103,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 106,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 109,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 112,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 115,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 118,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 121,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 124,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 127,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 130,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 133,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 136,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 139,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 142,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 145,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 148,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 151,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 154,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 157,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 160,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 163,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 166,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 169,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 172,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 175,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 178,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 181,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 184,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 187,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 190,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 193,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 196,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 199,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 202,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 205,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 208,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 211,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 214,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 217,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 220,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 223,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 226,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 229,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 232,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 235,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 238,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 241,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 244,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 247,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 250,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 253,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 256,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 259,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 262,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 265,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 268,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 271,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 274,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 277,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 280,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 283,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 286,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 289,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 292,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 295,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 298,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 301,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 304,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 307,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 310,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 313,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 316,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 319,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 322,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 325,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 328,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 331,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 334,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 337,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 340,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 343,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 346,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 349,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 352,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 355,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 358,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 361,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 364,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 367,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 370,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 373,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 376,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 379,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 382,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 385,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 388,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 391,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 394,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 397,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 400,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 403,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 406,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 409,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 412,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 415,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 418,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 421,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 424,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 427,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 430,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 433,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 436,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 439,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 442,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 445,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 448,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 451,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 454,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 457,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 460,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 463,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 466,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 469,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 472,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 475,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 478,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 481,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 484,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 487,
+          "segment": "new",
+          "region": "east"
+        },
+        {
+          "id": 490,
+          "segment": "new",
+          "region": "south"
+        },
+        {
+          "id": 493,
+          "segment": "new",
+          "region": "north"
+        },
+        {
+          "id": 496,
+          "segment": "new",
+          "region": "west"
+        },
+        {
+          "id": 499,
+          "segment": "new",
+          "region": "east"
+        }
+      ],
+      "holdout": []
+    },
+    "decision": {
+      "bound_at": "2026-11-17T12:07:02.304Z",
+      "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+      "revision": 1,
+      "snapshot": {
+        "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+        "revision": 1,
+        "title": "权益说明 · new 客群",
+        "message": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+        "reasoning": "浏览器模拟，仅验证流程。",
+        "score": 80,
+        "plan_data": {
+          "schema_version": 2,
+          "revision": 1,
+          "planning_source": "browser_simulation",
+          "goal": {
+            "intent": "education",
+            "description": "为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与",
+            "budget_cny": 10000
+          },
+          "segment": {
+            "dsl": {
+              "all": [
+                {
+                  "field": "consent",
+                  "op": "eq",
+                  "value": true
+                },
+                {
+                  "field": "segment",
+                  "op": "eq",
+                  "value": "new"
+                }
+              ]
+            },
+            "estimated_size": 167,
+            "treatment_size": 167,
+            "holdout_size": 0
+          },
+          "strategy": {
+            "channel": "manual",
+            "message_focus": "权益说明",
+            "rationale": "只改变文案表达，固定其他约束，先试点再人工决策。",
+            "execution_mode": "handoff_only",
+            "pilot_schedule": [
+              {
+                "round": 1,
+                "ratio": 0.1,
+                "label": "试点"
+              },
+              {
+                "round": 2,
+                "ratio": 0.9,
+                "label": "剩余全量"
+              }
+            ],
+            "ab_experiment": {
+              "test_ratio": 0.1,
+              "window_days": 7,
+              "window_enforced": false
+            },
+            "contacts_per_user": 1,
+            "comparison_axis": "message",
+            "contact_schedule": [
+              {
+                "contact": 1,
+                "day_offset": 0,
+                "channel": "manual"
+              }
+            ]
+          },
+          "offer_strategy": {
+            "verified_benefits": "积分查询、专属客服；不提供额外优惠",
+            "source": "operator_input",
+            "additional_incentives": false
+          },
+          "cost_estimate": {
+            "unit_cost_cny": 0,
+            "source": "not_provided",
+            "total_cny": null,
+            "contacts_per_user": 1,
+            "within_budget": null
+          },
+          "compliance": {
+            "decision": "PASS"
+          },
+          "trace": [
+            "goal_understanding",
+            "segment_selection",
+            "strategy_planning",
+            "planning_compliance",
+            "content_preview",
+            "content_compliance",
+            "plan_output"
+          ],
+          "limitations": [
+            "浏览器模板模拟，不运行真实 LangGraph 或模型",
+            "渠道、观察窗口与节奏只作交接参数，不执行投放"
+          ],
+          "content_source": "browser_template",
+          "planning_input": {
+            "scenario": "membership_benefits",
+            "comparison_axis": "message",
+            "reference_message": "",
+            "success_definition": "用户主动查询权益或联系专属客服",
+            "contacts_per_user": 1,
+            "available_channels": [
+              "manual"
+            ],
+            "channel_costs": {
+              "manual": 0,
+              "sms": 0,
+              "in_app": 0
+            },
+            "intent": "education",
+            "known_benefits": "积分查询、专属客服；不提供额外优惠",
+            "channel": "manual",
+            "region": "all",
+            "unit_cost_cny": 0,
+            "pilot_ratio": 0.1,
+            "window_days": 7,
+            "enable_holdout": false,
+            "holdout_ratio": 0.1
+          },
+          "scenario": {
+            "id": "membership_benefits",
+            "name": "会员权益触达",
+            "success_definition": "用户主动查询权益或联系专属客服"
+          },
+          "comparison": {
+            "axis": "message",
+            "axis_label": "文案表达",
+            "value": "权益说明",
+            "controlled_variables": [
+              "权益",
+              "人群",
+              "成功定义",
+              "观察天数",
+              "渠道",
+              "频次"
+            ],
+            "hypothesis": "权益说明可能影响权益咨询率，尚无效果证据。",
+            "risks": [
+              "单次触达可能被忽略"
+            ],
+            "recommendation": "先试点，再由人工决定；没有自动胜出结论"
+          },
+          "decision_basis": [
+            {
+              "evidence": "积分查询、专属客服；不提供额外优惠",
+              "implication": "权益来自运营输入，尚未外部核验"
+            },
+            {
+              "evidence": "每次单价 未知",
+              "implication": "费用还需乘以计划次数和可触达人群"
+            }
+          ],
+          "content_preview_variants": [
+            {
+              "title": "权益说明 · new 客群",
+              "copy": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+              "finalized": false
+            }
+          ]
+        }
+      },
+      "snapshot_sha256": "c354dbc51da2bb32ed2b0ee00897b7be492c4a946122580bee781e42f07c3ecc",
+      "source": "approval",
+      "decision_reason": null,
+      "content_status": "operator_approved_preview"
+    }
+  },
+  "candidates": [
+    {
+      "id": "7b666fcd4d4344e99412087ddfc2bd19",
+      "variant": 1,
+      "title": "权益说明 · new 客群",
+      "message": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+      "reasoning": "浏览器模拟，仅验证流程。",
+      "score": 80,
+      "segment": "new",
+      "plan_data": {
+        "schema_version": 2,
+        "revision": 1,
+        "planning_source": "browser_simulation",
+        "goal": {
+          "intent": "education",
+          "description": "为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与",
+          "budget_cny": 10000
+        },
+        "segment": {
+          "dsl": {
+            "all": [
+              {
+                "field": "consent",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "field": "segment",
+                "op": "eq",
+                "value": "new"
+              }
+            ]
+          },
+          "estimated_size": 167,
+          "treatment_size": 167,
+          "holdout_size": 0
+        },
+        "strategy": {
+          "channel": "manual",
+          "message_focus": "权益说明",
+          "rationale": "只改变文案表达，固定其他约束，先试点再人工决策。",
+          "execution_mode": "handoff_only",
+          "pilot_schedule": [
+            {
+              "round": 1,
+              "ratio": 0.1,
+              "label": "试点"
+            },
+            {
+              "round": 2,
+              "ratio": 0.9,
+              "label": "剩余全量"
+            }
+          ],
+          "ab_experiment": {
+            "test_ratio": 0.1,
+            "window_days": 7,
+            "window_enforced": false
+          },
+          "contacts_per_user": 1,
+          "comparison_axis": "message",
+          "contact_schedule": [
+            {
+              "contact": 1,
+              "day_offset": 0,
+              "channel": "manual"
+            }
+          ]
+        },
+        "offer_strategy": {
+          "verified_benefits": "积分查询、专属客服；不提供额外优惠",
+          "source": "operator_input",
+          "additional_incentives": false
+        },
+        "cost_estimate": {
+          "unit_cost_cny": 0,
+          "source": "not_provided",
+          "total_cny": null,
+          "contacts_per_user": 1,
+          "within_budget": null
+        },
+        "compliance": {
+          "decision": "PASS"
+        },
+        "trace": [
+          "goal_understanding",
+          "segment_selection",
+          "strategy_planning",
+          "planning_compliance",
+          "content_preview",
+          "content_compliance",
+          "plan_output"
+        ],
+        "limitations": [
+          "浏览器模板模拟，不运行真实 LangGraph 或模型",
+          "渠道、观察窗口与节奏只作交接参数，不执行投放"
+        ],
+        "content_source": "browser_template",
+        "planning_input": {
+          "scenario": "membership_benefits",
+          "comparison_axis": "message",
+          "reference_message": "",
+          "success_definition": "用户主动查询权益或联系专属客服",
+          "contacts_per_user": 1,
+          "available_channels": [
+            "manual"
+          ],
+          "channel_costs": {
+            "manual": 0,
+            "sms": 0,
+            "in_app": 0
+          },
+          "intent": "education",
+          "known_benefits": "积分查询、专属客服；不提供额外优惠",
+          "channel": "manual",
+          "region": "all",
+          "unit_cost_cny": 0,
+          "pilot_ratio": 0.1,
+          "window_days": 7,
+          "enable_holdout": false,
+          "holdout_ratio": 0.1
+        },
+        "scenario": {
+          "id": "membership_benefits",
+          "name": "会员权益触达",
+          "success_definition": "用户主动查询权益或联系专属客服"
+        },
+        "comparison": {
+          "axis": "message",
+          "axis_label": "文案表达",
+          "value": "权益说明",
+          "controlled_variables": [
+            "权益",
+            "人群",
+            "成功定义",
+            "观察天数",
+            "渠道",
+            "频次"
+          ],
+          "hypothesis": "权益说明可能影响权益咨询率，尚无效果证据。",
+          "risks": [
+            "单次触达可能被忽略"
+          ],
+          "recommendation": "先试点，再由人工决定；没有自动胜出结论"
+        },
+        "decision_basis": [
+          {
+            "evidence": "积分查询、专属客服；不提供额外优惠",
+            "implication": "权益来自运营输入，尚未外部核验"
+          },
+          {
+            "evidence": "每次单价 未知",
+            "implication": "费用还需乘以计划次数和可触达人群"
+          }
+        ],
+        "content_preview_variants": [
+          {
+            "title": "权益说明 · new 客群",
+            "copy": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+            "finalized": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "f99437089ecc4dff9f49df37f0929b61",
+      "variant": 2,
+      "title": "使用场景 · new 客群",
+      "message": "积分查询、专属客服；不提供额外优惠。从使用场景角度了解服务，自愿参与，不增加额外优惠。",
+      "reasoning": "浏览器模拟，仅验证流程。",
+      "score": 80,
+      "segment": "new",
+      "plan_data": {
+        "schema_version": 2,
+        "revision": 1,
+        "planning_source": "browser_simulation",
+        "goal": {
+          "intent": "education",
+          "description": "为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与",
+          "budget_cny": 10000
+        },
+        "segment": {
+          "dsl": {
+            "all": [
+              {
+                "field": "consent",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "field": "segment",
+                "op": "eq",
+                "value": "new"
+              }
+            ]
+          },
+          "estimated_size": 167,
+          "treatment_size": 167,
+          "holdout_size": 0
+        },
+        "strategy": {
+          "channel": "manual",
+          "message_focus": "使用场景",
+          "rationale": "只改变文案表达，固定其他约束，先试点再人工决策。",
+          "execution_mode": "handoff_only",
+          "pilot_schedule": [
+            {
+              "round": 1,
+              "ratio": 0.1,
+              "label": "试点"
+            },
+            {
+              "round": 2,
+              "ratio": 0.9,
+              "label": "剩余全量"
+            }
+          ],
+          "ab_experiment": {
+            "test_ratio": 0.1,
+            "window_days": 7,
+            "window_enforced": false
+          },
+          "contacts_per_user": 1,
+          "comparison_axis": "message",
+          "contact_schedule": [
+            {
+              "contact": 1,
+              "day_offset": 0,
+              "channel": "manual"
+            }
+          ]
+        },
+        "offer_strategy": {
+          "verified_benefits": "积分查询、专属客服；不提供额外优惠",
+          "source": "operator_input",
+          "additional_incentives": false
+        },
+        "cost_estimate": {
+          "unit_cost_cny": 0,
+          "source": "not_provided",
+          "total_cny": null,
+          "contacts_per_user": 1,
+          "within_budget": null
+        },
+        "compliance": {
+          "decision": "PASS"
+        },
+        "trace": [
+          "goal_understanding",
+          "segment_selection",
+          "strategy_planning",
+          "planning_compliance",
+          "content_preview",
+          "content_compliance",
+          "plan_output"
+        ],
+        "limitations": [
+          "浏览器模板模拟，不运行真实 LangGraph 或模型",
+          "渠道、观察窗口与节奏只作交接参数，不执行投放"
+        ],
+        "content_source": "browser_template",
+        "planning_input": {
+          "scenario": "membership_benefits",
+          "comparison_axis": "message",
+          "reference_message": "",
+          "success_definition": "用户主动查询权益或联系专属客服",
+          "contacts_per_user": 1,
+          "available_channels": [
+            "manual"
+          ],
+          "channel_costs": {
+            "manual": 0,
+            "sms": 0,
+            "in_app": 0
+          },
+          "intent": "education",
+          "known_benefits": "积分查询、专属客服；不提供额外优惠",
+          "channel": "manual",
+          "region": "all",
+          "unit_cost_cny": 0,
+          "pilot_ratio": 0.1,
+          "window_days": 7,
+          "enable_holdout": false,
+          "holdout_ratio": 0.1
+        },
+        "scenario": {
+          "id": "membership_benefits",
+          "name": "会员权益触达",
+          "success_definition": "用户主动查询权益或联系专属客服"
+        },
+        "comparison": {
+          "axis": "message",
+          "axis_label": "文案表达",
+          "value": "使用场景",
+          "controlled_variables": [
+            "权益",
+            "人群",
+            "成功定义",
+            "观察天数",
+            "渠道",
+            "频次"
+          ],
+          "hypothesis": "使用场景可能影响权益咨询率，尚无效果证据。",
+          "risks": [
+            "单次触达可能被忽略"
+          ],
+          "recommendation": "先试点，再由人工决定；没有自动胜出结论"
+        },
+        "decision_basis": [
+          {
+            "evidence": "积分查询、专属客服；不提供额外优惠",
+            "implication": "权益来自运营输入，尚未外部核验"
+          },
+          {
+            "evidence": "每次单价 未知",
+            "implication": "费用还需乘以计划次数和可触达人群"
+          }
+        ],
+        "content_preview_variants": [
+          {
+            "title": "使用场景 · new 客群",
+            "copy": "积分查询、专属客服；不提供额外优惠。从使用场景角度了解服务，自愿参与，不增加额外优惠。",
+            "finalized": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "eef82e76bd2641b6a56e074ab8775234",
+      "variant": 3,
+      "title": "参与指引 · new 客群",
+      "message": "积分查询、专属客服；不提供额外优惠。从参与指引角度了解服务，自愿参与，不增加额外优惠。",
+      "reasoning": "浏览器模拟，仅验证流程。",
+      "score": 80,
+      "segment": "new",
+      "plan_data": {
+        "schema_version": 2,
+        "revision": 1,
+        "planning_source": "browser_simulation",
+        "goal": {
+          "intent": "education",
+          "description": "为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与",
+          "budget_cny": 10000
+        },
+        "segment": {
+          "dsl": {
+            "all": [
+              {
+                "field": "consent",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "field": "segment",
+                "op": "eq",
+                "value": "new"
+              }
+            ]
+          },
+          "estimated_size": 167,
+          "treatment_size": 167,
+          "holdout_size": 0
+        },
+        "strategy": {
+          "channel": "manual",
+          "message_focus": "参与指引",
+          "rationale": "只改变文案表达，固定其他约束，先试点再人工决策。",
+          "execution_mode": "handoff_only",
+          "pilot_schedule": [
+            {
+              "round": 1,
+              "ratio": 0.1,
+              "label": "试点"
+            },
+            {
+              "round": 2,
+              "ratio": 0.9,
+              "label": "剩余全量"
+            }
+          ],
+          "ab_experiment": {
+            "test_ratio": 0.1,
+            "window_days": 7,
+            "window_enforced": false
+          },
+          "contacts_per_user": 1,
+          "comparison_axis": "message",
+          "contact_schedule": [
+            {
+              "contact": 1,
+              "day_offset": 0,
+              "channel": "manual"
+            }
+          ]
+        },
+        "offer_strategy": {
+          "verified_benefits": "积分查询、专属客服；不提供额外优惠",
+          "source": "operator_input",
+          "additional_incentives": false
+        },
+        "cost_estimate": {
+          "unit_cost_cny": 0,
+          "source": "not_provided",
+          "total_cny": null,
+          "contacts_per_user": 1,
+          "within_budget": null
+        },
+        "compliance": {
+          "decision": "PASS"
+        },
+        "trace": [
+          "goal_understanding",
+          "segment_selection",
+          "strategy_planning",
+          "planning_compliance",
+          "content_preview",
+          "content_compliance",
+          "plan_output"
+        ],
+        "limitations": [
+          "浏览器模板模拟，不运行真实 LangGraph 或模型",
+          "渠道、观察窗口与节奏只作交接参数，不执行投放"
+        ],
+        "content_source": "browser_template",
+        "planning_input": {
+          "scenario": "membership_benefits",
+          "comparison_axis": "message",
+          "reference_message": "",
+          "success_definition": "用户主动查询权益或联系专属客服",
+          "contacts_per_user": 1,
+          "available_channels": [
+            "manual"
+          ],
+          "channel_costs": {
+            "manual": 0,
+            "sms": 0,
+            "in_app": 0
+          },
+          "intent": "education",
+          "known_benefits": "积分查询、专属客服；不提供额外优惠",
+          "channel": "manual",
+          "region": "all",
+          "unit_cost_cny": 0,
+          "pilot_ratio": 0.1,
+          "window_days": 7,
+          "enable_holdout": false,
+          "holdout_ratio": 0.1
+        },
+        "scenario": {
+          "id": "membership_benefits",
+          "name": "会员权益触达",
+          "success_definition": "用户主动查询权益或联系专属客服"
+        },
+        "comparison": {
+          "axis": "message",
+          "axis_label": "文案表达",
+          "value": "参与指引",
+          "controlled_variables": [
+            "权益",
+            "人群",
+            "成功定义",
+            "观察天数",
+            "渠道",
+            "频次"
+          ],
+          "hypothesis": "参与指引可能影响权益咨询率，尚无效果证据。",
+          "risks": [
+            "单次触达可能被忽略"
+          ],
+          "recommendation": "先试点，再由人工决定；没有自动胜出结论"
+        },
+        "decision_basis": [
+          {
+            "evidence": "积分查询、专属客服；不提供额外优惠",
+            "implication": "权益来自运营输入，尚未外部核验"
+          },
+          {
+            "evidence": "每次单价 未知",
+            "implication": "费用还需乘以计划次数和可触达人群"
+          }
+        ],
+        "content_preview_variants": [
+          {
+            "title": "参与指引 · new 客群",
+            "copy": "积分查询、专属客服；不提供额外优惠。从参与指引角度了解服务，自愿参与，不增加额外优惠。",
+            "finalized": false
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "name": "generation.queued",
+      "payload": {}
+    },
+    {
+      "id": 2,
+      "name": "candidate.ready",
+      "payload": {
+        "variant": 1,
+        "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19"
+      }
+    },
+    {
+      "id": 3,
+      "name": "candidate.ready",
+      "payload": {
+        "variant": 2,
+        "candidate_id": "f99437089ecc4dff9f49df37f0929b61"
+      }
+    },
+    {
+      "id": 4,
+      "name": "candidate.ready",
+      "payload": {
+        "variant": 3,
+        "candidate_id": "eef82e76bd2641b6a56e074ab8775234"
+      }
+    },
+    {
+      "id": 5,
+      "name": "generation.finished",
+      "payload": {
+        "status": "WAITING_APPROVAL"
+      }
+    },
+    {
+      "id": 6,
+      "name": "campaign.approved",
+      "payload": {
+        "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+        "revision": 1
+      }
+    },
+    {
+      "id": 7,
+      "name": "pilot.exported",
+      "payload": {
+        "rows": 17
+      }
+    },
+    {
+      "id": 8,
+      "name": "campaign.completed",
+      "payload": {
+        "rows": 150
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "06d10b80168248f690ca583fa5cfbbc3",
+      "campaign_id": "d411d28ae078496b8c0198b9d9f07062",
+      "kind": "pilot",
+      "row_count": 17,
+      "sha256": "edcbd94d1168e29f51bc41f9be77240f68fc82776c3727f55c9d0f4fd1b2f511",
+      "binding": {
+        "bound_at": "2026-11-17T12:07:02.304Z",
+        "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+        "revision": 1,
+        "snapshot": {
+          "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+          "revision": 1,
+          "title": "权益说明 · new 客群",
+          "message": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+          "reasoning": "浏览器模拟，仅验证流程。",
+          "score": 80,
+          "plan_data": {
+            "schema_version": 2,
+            "revision": 1,
+            "planning_source": "browser_simulation",
+            "goal": {
+              "intent": "education",
+              "description": "为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与",
+              "budget_cny": 10000
+            },
+            "segment": {
+              "dsl": {
+                "all": [
+                  {
+                    "field": "consent",
+                    "op": "eq",
+                    "value": true
+                  },
+                  {
+                    "field": "segment",
+                    "op": "eq",
+                    "value": "new"
+                  }
+                ]
+              },
+              "estimated_size": 167,
+              "treatment_size": 167,
+              "holdout_size": 0
+            },
+            "strategy": {
+              "channel": "manual",
+              "message_focus": "权益说明",
+              "rationale": "只改变文案表达，固定其他约束，先试点再人工决策。",
+              "execution_mode": "handoff_only",
+              "pilot_schedule": [
+                {
+                  "round": 1,
+                  "ratio": 0.1,
+                  "label": "试点"
+                },
+                {
+                  "round": 2,
+                  "ratio": 0.9,
+                  "label": "剩余全量"
+                }
+              ],
+              "ab_experiment": {
+                "test_ratio": 0.1,
+                "window_days": 7,
+                "window_enforced": false
+              },
+              "contacts_per_user": 1,
+              "comparison_axis": "message",
+              "contact_schedule": [
+                {
+                  "contact": 1,
+                  "day_offset": 0,
+                  "channel": "manual"
+                }
+              ]
+            },
+            "offer_strategy": {
+              "verified_benefits": "积分查询、专属客服；不提供额外优惠",
+              "source": "operator_input",
+              "additional_incentives": false
+            },
+            "cost_estimate": {
+              "unit_cost_cny": 0,
+              "source": "not_provided",
+              "total_cny": null,
+              "contacts_per_user": 1,
+              "within_budget": null
+            },
+            "compliance": {
+              "decision": "PASS"
+            },
+            "trace": [
+              "goal_understanding",
+              "segment_selection",
+              "strategy_planning",
+              "planning_compliance",
+              "content_preview",
+              "content_compliance",
+              "plan_output"
+            ],
+            "limitations": [
+              "浏览器模板模拟，不运行真实 LangGraph 或模型",
+              "渠道、观察窗口与节奏只作交接参数，不执行投放"
+            ],
+            "content_source": "browser_template",
+            "planning_input": {
+              "scenario": "membership_benefits",
+              "comparison_axis": "message",
+              "reference_message": "",
+              "success_definition": "用户主动查询权益或联系专属客服",
+              "contacts_per_user": 1,
+              "available_channels": [
+                "manual"
+              ],
+              "channel_costs": {
+                "manual": 0,
+                "sms": 0,
+                "in_app": 0
+              },
+              "intent": "education",
+              "known_benefits": "积分查询、专属客服；不提供额外优惠",
+              "channel": "manual",
+              "region": "all",
+              "unit_cost_cny": 0,
+              "pilot_ratio": 0.1,
+              "window_days": 7,
+              "enable_holdout": false,
+              "holdout_ratio": 0.1
+            },
+            "scenario": {
+              "id": "membership_benefits",
+              "name": "会员权益触达",
+              "success_definition": "用户主动查询权益或联系专属客服"
+            },
+            "comparison": {
+              "axis": "message",
+              "axis_label": "文案表达",
+              "value": "权益说明",
+              "controlled_variables": [
+                "权益",
+                "人群",
+                "成功定义",
+                "观察天数",
+                "渠道",
+                "频次"
+              ],
+              "hypothesis": "权益说明可能影响权益咨询率，尚无效果证据。",
+              "risks": [
+                "单次触达可能被忽略"
+              ],
+              "recommendation": "先试点，再由人工决定；没有自动胜出结论"
+            },
+            "decision_basis": [
+              {
+                "evidence": "积分查询、专属客服；不提供额外优惠",
+                "implication": "权益来自运营输入，尚未外部核验"
+              },
+              {
+                "evidence": "每次单价 未知",
+                "implication": "费用还需乘以计划次数和可触达人群"
+              }
+            ],
+            "content_preview_variants": [
+              {
+                "title": "权益说明 · new 客群",
+                "copy": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+                "finalized": false
+              }
+            ]
+          }
+        },
+        "snapshot_sha256": "c354dbc51da2bb32ed2b0ee00897b7be492c4a946122580bee781e42f07c3ecc",
+        "source": "approval",
+        "decision_reason": null,
+        "content_status": "operator_approved_preview",
+        "exported_at": "2026-11-17T12:07:02.375Z",
+        "kind": "pilot",
+        "audience_ids": [
+          1,
+          4,
+          7,
+          10,
+          13,
+          16,
+          19,
+          22,
+          25,
+          28,
+          31,
+          34,
+          37,
+          40,
+          43,
+          46,
+          49
+        ]
+      },
+      "users": [
+        1,
+        4,
+        7,
+        10,
+        13,
+        16,
+        19,
+        22,
+        25,
+        28,
+        31,
+        34,
+        37,
+        40,
+        43,
+        46,
+        49
+      ]
+    },
+    {
+      "id": "8f0e3274be1c476599e1d5cdd878dc2d",
+      "campaign_id": "d411d28ae078496b8c0198b9d9f07062",
+      "kind": "full",
+      "row_count": 150,
+      "sha256": "ae03b83d47fce30b833ed20969c36ad96879318e8076e1653f5020560e344357",
+      "binding": {
+        "bound_at": "2026-11-17T12:07:02.304Z",
+        "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+        "revision": 1,
+        "snapshot": {
+          "candidate_id": "7b666fcd4d4344e99412087ddfc2bd19",
+          "revision": 1,
+          "title": "权益说明 · new 客群",
+          "message": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+          "reasoning": "浏览器模拟，仅验证流程。",
+          "score": 80,
+          "plan_data": {
+            "schema_version": 2,
+            "revision": 1,
+            "planning_source": "browser_simulation",
+            "goal": {
+              "intent": "education",
+              "description": "为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与",
+              "budget_cny": 10000
+            },
+            "segment": {
+              "dsl": {
+                "all": [
+                  {
+                    "field": "consent",
+                    "op": "eq",
+                    "value": true
+                  },
+                  {
+                    "field": "segment",
+                    "op": "eq",
+                    "value": "new"
+                  }
+                ]
+              },
+              "estimated_size": 167,
+              "treatment_size": 167,
+              "holdout_size": 0
+            },
+            "strategy": {
+              "channel": "manual",
+              "message_focus": "权益说明",
+              "rationale": "只改变文案表达，固定其他约束，先试点再人工决策。",
+              "execution_mode": "handoff_only",
+              "pilot_schedule": [
+                {
+                  "round": 1,
+                  "ratio": 0.1,
+                  "label": "试点"
+                },
+                {
+                  "round": 2,
+                  "ratio": 0.9,
+                  "label": "剩余全量"
+                }
+              ],
+              "ab_experiment": {
+                "test_ratio": 0.1,
+                "window_days": 7,
+                "window_enforced": false
+              },
+              "contacts_per_user": 1,
+              "comparison_axis": "message",
+              "contact_schedule": [
+                {
+                  "contact": 1,
+                  "day_offset": 0,
+                  "channel": "manual"
+                }
+              ]
+            },
+            "offer_strategy": {
+              "verified_benefits": "积分查询、专属客服；不提供额外优惠",
+              "source": "operator_input",
+              "additional_incentives": false
+            },
+            "cost_estimate": {
+              "unit_cost_cny": 0,
+              "source": "not_provided",
+              "total_cny": null,
+              "contacts_per_user": 1,
+              "within_budget": null
+            },
+            "compliance": {
+              "decision": "PASS"
+            },
+            "trace": [
+              "goal_understanding",
+              "segment_selection",
+              "strategy_planning",
+              "planning_compliance",
+              "content_preview",
+              "content_compliance",
+              "plan_output"
+            ],
+            "limitations": [
+              "浏览器模板模拟，不运行真实 LangGraph 或模型",
+              "渠道、观察窗口与节奏只作交接参数，不执行投放"
+            ],
+            "content_source": "browser_template",
+            "planning_input": {
+              "scenario": "membership_benefits",
+              "comparison_axis": "message",
+              "reference_message": "",
+              "success_definition": "用户主动查询权益或联系专属客服",
+              "contacts_per_user": 1,
+              "available_channels": [
+                "manual"
+              ],
+              "channel_costs": {
+                "manual": 0,
+                "sms": 0,
+                "in_app": 0
+              },
+              "intent": "education",
+              "known_benefits": "积分查询、专属客服；不提供额外优惠",
+              "channel": "manual",
+              "region": "all",
+              "unit_cost_cny": 0,
+              "pilot_ratio": 0.1,
+              "window_days": 7,
+              "enable_holdout": false,
+              "holdout_ratio": 0.1
+            },
+            "scenario": {
+              "id": "membership_benefits",
+              "name": "会员权益触达",
+              "success_definition": "用户主动查询权益或联系专属客服"
+            },
+            "comparison": {
+              "axis": "message",
+              "axis_label": "文案表达",
+              "value": "权益说明",
+              "controlled_variables": [
+                "权益",
+                "人群",
+                "成功定义",
+                "观察天数",
+                "渠道",
+                "频次"
+              ],
+              "hypothesis": "权益说明可能影响权益咨询率，尚无效果证据。",
+              "risks": [
+                "单次触达可能被忽略"
+              ],
+              "recommendation": "先试点，再由人工决定；没有自动胜出结论"
+            },
+            "decision_basis": [
+              {
+                "evidence": "积分查询、专属客服；不提供额外优惠",
+                "implication": "权益来自运营输入，尚未外部核验"
+              },
+              {
+                "evidence": "每次单价 未知",
+                "implication": "费用还需乘以计划次数和可触达人群"
+              }
+            ],
+            "content_preview_variants": [
+              {
+                "title": "权益说明 · new 客群",
+                "copy": "积分查询、专属客服；不提供额外优惠。从权益说明角度了解服务，自愿参与，不增加额外优惠。",
+                "finalized": false
+              }
+            ]
+          }
+        },
+        "snapshot_sha256": "c354dbc51da2bb32ed2b0ee00897b7be492c4a946122580bee781e42f07c3ecc",
+        "source": "approval",
+        "decision_reason": null,
+        "content_status": "operator_approved_preview",
+        "exported_at": "2026-11-17T12:07:02.447Z",
+        "kind": "full",
+        "audience_ids": [
+          52,
+          55,
+          58,
+          61,
+          64,
+          67,
+          70,
+          73,
+          76,
+          79,
+          82,
+          85,
+          88,
+          91,
+          94,
+          97,
+          100,
+          103,
+          106,
+          109,
+          112,
+          115,
+          118,
+          121,
+          124,
+          127,
+          130,
+          133,
+          136,
+          139,
+          142,
+          145,
+          148,
+          151,
+          154,
+          157,
+          160,
+          163,
+          166,
+          169,
+          172,
+          175,
+          178,
+          181,
+          184,
+          187,
+          190,
+          193,
+          196,
+          199,
+          202,
+          205,
+          208,
+          211,
+          214,
+          217,
+          220,
+          223,
+          226,
+          229,
+          232,
+          235,
+          238,
+          241,
+          244,
+          247,
+          250,
+          253,
+          256,
+          259,
+          262,
+          265,
+          268,
+          271,
+          274,
+          277,
+          280,
+          283,
+          286,
+          289,
+          292,
+          295,
+          298,
+          301,
+          304,
+          307,
+          310,
+          313,
+          316,
+          319,
+          322,
+          325,
+          328,
+          331,
+          334,
+          337,
+          340,
+          343,
+          346,
+          349,
+          352,
+          355,
+          358,
+          361,
+          364,
+          367,
+          370,
+          373,
+          376,
+          379,
+          382,
+          385,
+          388,
+          391,
+          394,
+          397,
+          400,
+          403,
+          406,
+          409,
+          412,
+          415,
+          418,
+          421,
+          424,
+          427,
+          430,
+          433,
+          436,
+          439,
+          442,
+          445,
+          448,
+          451,
+          454,
+          457,
+          460,
+          463,
+          466,
+          469,
+          472,
+          475,
+          478,
+          481,
+          484,
+          487,
+          490,
+          493,
+          496,
+          499
+        ]
+      },
+      "users": [
+        52,
+        55,
+        58,
+        61,
+        64,
+        67,
+        70,
+        73,
+        76,
+        79,
+        82,
+        85,
+        88,
+        91,
+        94,
+        97,
+        100,
+        103,
+        106,
+        109,
+        112,
+        115,
+        118,
+        121,
+        124,
+        127,
+        130,
+        133,
+        136,
+        139,
+        142,
+        145,
+        148,
+        151,
+        154,
+        157,
+        160,
+        163,
+        166,
+        169,
+        172,
+        175,
+        178,
+        181,
+        184,
+        187,
+        190,
+        193,
+        196,
+        199,
+        202,
+        205,
+        208,
+        211,
+        214,
+        217,
+        220,
+        223,
+        226,
+        229,
+        232,
+        235,
+        238,
+        241,
+        244,
+        247,
+        250,
+        253,
+        256,
+        259,
+        262,
+        265,
+        268,
+        271,
+        274,
+        277,
+        280,
+        283,
+        286,
+        289,
+        292,
+        295,
+        298,
+        301,
+        304,
+        307,
+        310,
+        313,
+        316,
+        319,
+        322,
+        325,
+        328,
+        331,
+        334,
+        337,
+        340,
+        343,
+        346,
+        349,
+        352,
+        355,
+        358,
+        361,
+        364,
+        367,
+        370,
+        373,
+        376,
+        379,
+        382,
+        385,
+        388,
+        391,
+        394,
+        397,
+        400,
+        403,
+        406,
+        409,
+        412,
+        415,
+        418,
+        421,
+        424,
+        427,
+        430,
+        433,
+        436,
+        439,
+        442,
+        445,
+        448,
+        451,
+        454,
+        457,
+        460,
+        463,
+        466,
+        469,
+        472,
+        475,
+        478,
+        481,
+        484,
+        487,
+        490,
+        493,
+        496,
+        499
+      ]
+    }
+  ],
+  "support": {
+    "policy": [
+      {
+        "role": "user",
+        "content": "退款政策是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "退款需提交订单信息并由人工审核，本演示不执行资金操作。"
+      }
+    ],
+    "pending": [
+      {
+        "role": "user",
+        "content": "退款政策是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "退款需提交订单信息并由人工审核，本演示不执行资金操作。"
+      },
+      {
+        "role": "user",
+        "content": "我要退款"
+      },
+      {
+        "role": "assistant",
+        "content": "是否确认提交退款人工审核申请？在线演示不执行退款。"
+      }
+    ],
+    "confirmed": [
+      {
+        "role": "user",
+        "content": "退款政策是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "退款需提交订单信息并由人工审核，本演示不执行资金操作。"
+      },
+      {
+        "role": "user",
+        "content": "我要退款"
+      },
+      {
+        "role": "assistant",
+        "content": "是否确认提交退款人工审核申请？在线演示不执行退款。"
+      },
+      {
+        "role": "assistant",
+        "content": "已记录人工审核申请（在线演示，不创建真实工单）。"
+      }
+    ]
+  }
+}

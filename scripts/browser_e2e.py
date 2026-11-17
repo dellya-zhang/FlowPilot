@@ -7,6 +7,7 @@ with sync_playwright() as p:
  errors=[]
  page.on('pageerror',lambda error:errors.append(str(error)))
  page.goto('http://127.0.0.1:8017')
+ page.locator('[data-view="marketing"]').click()
  page.click('[data-scenario="experiment"]')
  assert page.input_value('#audience') == 'dormant'
  page.click('#create')

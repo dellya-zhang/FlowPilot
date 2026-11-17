@@ -1,13 +1,16 @@
 /* Task-oriented navigation shared by static preview and the Python workspace. */
 (() => {
   const byId = id => document.getElementById(id);
-  const views = ['marketing', 'support', 'knowledge', 'settings'];
+  const views = ['overview', 'marketing', 'support', 'knowledge', 'settings'];
   function showView(view) {
-    if (!views.includes(view)) view = 'marketing';
+    if (!views.includes(view)) view = 'overview';
     document.body.dataset.view = view;
     const headings = {marketing:['从运营目标，到可追踪的交付。','填写目标 → 比较候选 → 人工决策 → 试点验证 → 排重交付。'],support:['让咨询与操作，各有清晰的流程。','查看政策、提出申请，再由你确认是否提交演示审核。'],knowledge:['回答有依据，政策可追溯。','检索本地政策，阅读原文引用；此入口不发起业务操作。'],settings:['连接模型，查看调用预算。','本地后端负责模型连接；在线演示使用浏览器模板。']};
+    headings.overview = ['这个 Agent 项目，具体完成了什么？','先看一个完整案例，再进入工作台检查过程与产物。'];
     document.querySelector('.page-heading h1').textContent = headings[view][0];
     document.querySelector('.page-heading p').textContent = headings[view][1];
+    byId('projectOverview').hidden = view !== 'overview';
+    byId('workspace').hidden = view === 'overview';
     document.querySelectorAll('[data-view]').forEach(a => {
       a.classList.toggle('nav-active', a.dataset.view === view);
       if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
@@ -26,6 +29,7 @@
   };
   document.querySelectorAll('[data-scenario]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.scenario === 'support') { location.hash = 'support'; byId('message').focus(); return; }
+    location.hash = 'marketing';
     const [brief, audience, hint] = scenarios[b.dataset.scenario];
     byId('planIntent').value=b.dataset.scenario==='experiment'?'reactivation':'education';
     byId('brief').value = brief; byId('audience').value = audience;

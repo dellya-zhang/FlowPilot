@@ -11,7 +11,7 @@ with sync_playwright() as p:
     page = browser.new_page(viewport={"width":1440,"height":1100})
     errors = []
     page.on("pageerror",lambda error:errors.append(str(error)))
-    page.goto(base)
+    page.goto(base+"/#knowledge")
     page.locator("#knowledgeAsk").click()
     expect(page.locator("#knowledgeResult")).to_contain_text("policies.md")
     assert "人工审核" in page.locator("#knowledgeResult").inner_text()
@@ -25,7 +25,7 @@ with sync_playwright() as p:
     page.set_viewport_size({"width":390,"height":844})
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     page.locator(".knowledge-panel").screenshot(path=str(out/"knowledge-mobile.png"))
-    page.goto(base+"/?demo=1")
+    page.goto(base+"/?demo=1#knowledge")
     assert page.locator("#knowledgeAsk").is_disabled()
     assert page.locator("#knowledgeModel").is_disabled()
     assert not errors, errors

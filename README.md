@@ -1,25 +1,56 @@
-# FlowPilot · 智能运营与 Agent 工作台
+# FlowPilot · 营销与客服 Agent 工作台
 
 [![CI](https://github.com/dellya-zhang/FlowPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/dellya-zhang/FlowPilot/actions/workflows/ci.yml)
-[![Interactive demo](https://img.shields.io/badge/demo-在线交互预览-94cb65)](https://dellya-zhang.github.io/FlowPilot/)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](pyproject.toml)
+[![Demo](https://img.shields.io/badge/demo-案例与交互工作台-26715b)](https://dellya-zhang.github.io/FlowPilot/)
 
-**以会员权益触达为完整示例的本地运营工作台。** 比较策略依据与风险，保留运营修订历史，将审批、试点和CSV交付绑定到具体版本，再分别记录方案采纳、处理耗时及逐次触达观察；另提供客服确认与政策检索。
+**让运营从一句活动目标走到可审核的方案与名单交付，让客服从政策咨询走到明确确认的审核记录。**
 
-**[打开白色交互工作台 →](https://dellya-zhang.github.io/FlowPilot/)** · [用户操作指南](docs/用户操作指南.md) · [架构设计](docs/设计映射与架构.md) · [测试报告](#测试与验证)
+个人独立演示工程。交付包括前端工作台、FastAPI 后端、Agent 编排与状态恢复机制；使用合成用户，尚未接入真实营销渠道、订单或支付退款。
 
-> 在线演示在浏览器模拟后端，数据仅保存在访问者本机，不调用模型或真实业务服务。完整 Python 后端、数据库、LangGraph 和可选 DeepSeek 接入包含在本仓库，可按下文启动。
+**[30 秒看懂完整案例 →](https://dellya-zhang.github.io/FlowPilot/)** · [直接运行营销流程](https://dellya-zhang.github.io/FlowPilot/#marketing) · [体验客服确认](https://dellya-zhang.github.io/FlowPilot/#support) · [本地启动](#快速启动完整后端)
 
-![FlowPilot 在线工作台](docs/在线演示桌面.png)
+![项目概览：业务需求、工作过程与最终交付](docs/项目概览桌面.png)
 
-## 三分钟体验
+## 先看一次具体交付
 
-1. 打开 **[在线交互演示](https://dellya-zhang.github.io/FlowPilot/)**，选择“新会员权益介绍”或“沉睡用户唤醒”。场景只填入示例，不会自动创建任务。
-2. 点击 **创建并生成方案**，比较候选（渠道实验可为两套）。页面会随任务阶段提示下一步。
-3. 选择一条路线：**单方案审批 → 试点 → 全量交付**，或 **A/B 双臂 → 模拟反馈 → 人工晋级 → 全量交付**。两条路线互斥。
-4. 下载绑定方案版本的CSV，在“方案复盘与执行观察”记录送达与转化，下载复盘JSON。客服确认仍可从顶部导航体验。
+运营提出：“为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与。”
 
-**四个工作区**：营销计划负责候选与名单；客服协作负责咨询与审核确认；政策知识库负责原文依据；模型设置负责本地连接和预算诊断。在线预览不提供真实模型或知识库检索。
+| 过程 | 谁做什么 | 本次案例中的可见产物 |
+|---|---|---|
+| 输入需求 | 运营确定权益、人群、预算与比较变量 | 新用户、已有权益、不补造优惠 |
+| 生成候选 | 系统给出三种表达角度 | 权益说明 / 服务场景 / 自愿参与 |
+| 人工决策 | 运营比较并审批一套 | 冻结采用的方案和 v1 版本 |
+| 试点交付 | 先导出小范围名单 | **17 人**的试点 CSV |
+| 全量交付 | 排除已参加试点的用户 | **150 人**的剩余 CSV，与试点**交集为 0** |
+
+这些数字来自仓库中保存的一次**浏览器模板运行快照**，用于核对流程，不是营销效果、真实触达量或模型能力指标。数据、版本、名单与阶段事件均可检查：
+
+- [试点名单 CSV](web/examples/pilot.csv) · [剩余名单 CSV](web/examples/full.csv) · [完整案例 JSON](web/examples/case.json)
+- `python scripts/capture_showcase.py` 可重新录制案例；`python scripts/browser_showcase.py` 校验文件哈希、名单行数与页面行为（需要 Playwright 和 Edge）。
+
+![最终交付：两份可下载名单与排重结果](docs/案例交付桌面.png)
+
+客服案例则展示：**“退款政策是什么” → 只回答政策；“我要退款” → 等待确认；用户确认 → 留下演示审核记录。** 规则客服与本地政策知识库是两个入口，后者提供 BM25 检索与原文引用。
+
+## 核心实现与源码
+
+| 用户看到的行为 | 我实现的关键机制 | 源码 / 验证入口 |
+|---|---|---|
+| 候选陆续出现，可查看过程 | LangGraph 规划、有界并发、SSE 事件 | [planning.py](app/services/planning.py) · [campaigns.py](app/services/campaigns.py) |
+| 人工确认后按版本交付 | 不可变版本、审批快照、状态条件更新与排重 | [versions.py](app/services/versions.py) · [运营版本交付说明](docs/运营闭环与版本交付.md) |
+| 后端进程退出后接管任务 | SQL 租约、心跳、owner 校验 | [leases.py](app/services/leases.py) · [多进程验证](docs/多进程验证报告.md) |
+| 查询政策有原文依据 | 分块、BM25、可选模型证据筛选、无命中拒答 | [knowledge.py](app/services/knowledge.py) · [知识库说明](docs/政策知识库.md) |
+| 咨询与退款申请分开处理 | 规则路由、待确认状态、确认/取消 | [support.py](app/services/support.py) |
+| 控制可选云模型调用费用 | 文件锁、预算预留、跨进程限额 | [limiter.py](app/services/limiter.py) · [budget.py](app/services/budget.py) |
+
+**在线与本地的区别：** GitHub Pages 在浏览器模拟后端，数据保存在当前浏览器，不运行 LangGraph、SQL、RAG 或真实模型。完整 Python 后端需要本地启动，默认 Mock，也可配置 DeepSeek 等服务；详见[本地模型接入](docs/本地模型接入.md)。案例页只阅读快照，不自动创建、审批或投放任务。
+
+## 亲自体验
+
+1. 在[项目概览](https://dellya-zhang.github.io/FlowPilot/)逐步查看营销和客服案例。
+2. 点“进入工作台”，选择新会员场景，再点击“创建并生成方案”。
+3. 比较候选，审批一套，导出试点，再进行全量排重交付；也可另建任务体验 A/B 路线。
+4. 下载 CSV 检查版本与人群。客服入口可体验咨询、申请、确认或取消。
 
 ## 结构化策略规划
 
