@@ -19,3 +19,7 @@ dist/
 *.sqlite
 *.sqlite3
 .tools/
+
+node_modules/
+web/console/
+vue-evidence/

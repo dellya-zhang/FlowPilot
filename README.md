@@ -16,7 +16,7 @@
 
 **A/B 试点。** 固定其他条件，仅比较文案、频次或渠道之一。系统冻结两个方案版本，划分互斥客群，记录去重后的模拟反馈，结算后保存描述性结果和推荐，由运营选择胜出方案。全量交付排除两臂所有试点用户。当前不提供统计显著性检验。
 
-**客服。** 政策咨询直接回答；订单查询明确告知未接入订单系统；退款申请进入待确认状态，用户确认或取消后记录结果。政策知识库独立提供 BM25 检索及原文引用。
+**客服。** 合成会员可查询实际 SQL 中的会员画像、订单、物流及政策；指定本人订单并确认后创建本地待审核工单，不调用真实订单或资金系统。政策知识库独立提供 BM25 检索及原文引用。
 
 ## 实现
 
@@ -29,7 +29,7 @@
 | 客服与检索 | [support.py](app/services/support.py)、[knowledge.py](app/services/knowledge.py)：规则路由、确认状态、BM25 及引用；模型不授权业务写操作 |
 | 模型费用 | [budget.py](app/services/budget.py)、[limiter.py](app/services/limiter.py)：预算预留与结算、限流、同机跨进程保护 |
 
-前端使用 HTML/CSS/JavaScript，后端使用 FastAPI、SQLAlchemy、LangGraph。默认 SQLite 和本地文件；可选 PostgreSQL、Redis、MinIO 配置尚未完成组合验证。
+新版前端使用 Vue 3 / TypeScript / Vite（保留旧版 HTML/CSS/JavaScript 入口），后端使用 FastAPI、SQLAlchemy、LangGraph。默认 SQLite 和本地文件；可选 PostgreSQL、Redis、MinIO 配置尚未完成组合验证。
 
 ```mermaid
 flowchart LR
@@ -176,3 +176,15 @@ docs/          设计及验证记录
 ### 零售数据与真实工具调用
 
 合成会员有等级、积分、最近消费间隔、累计消费金额和两笔订单；营销可按消费间隔及金额圈选。客服在显式选择合成会员后（`POST /api/v1/support/sessions?member_id=1`），使用真实 SQL 查询；退款必须指明本会员订单并确认，生成本地待审核工单。DeepSeek 模式的查询通过原生 Chat Completions tools / tool_calls 协议调用只读工具，最多三轮；模型错误显式报告，不以模板冒充成功。配置 `AI_PROVIDER=deepseek` 和本机 `DEEPSEEK_API_KEY` 后才会访问模型。合成身份不等于真实身份认证。
+
+## 新版 Vue 运营控制台
+
+本地 Docker：复制 .env.example 为 .env，设置 AI_PROVIDER=deepseek 和 DEEPSEEK_API_KEY（不提交密钥），执行 `docker compose up --build`，访问 <http://127.0.0.1:8000/console/>。不配 Key 可保留 AI_PROVIDER=mock。
+
+非 Docker：先启动 FastAPI，再在 client/ 执行 npm install、npm run check、npm run build；访问同一个 /console/。开发模式 npm run dev 对应 http://127.0.0.1:5173/console/，API 代理到本机 8000。项目当前固定直接依赖版本，尚无经过验证的 npm lockfile；CI 安装并构建。
+
+新版提供活动列表、创建/澄清、候选修订与审批、A/B 试点/反馈/结算/晋级、全量交付、合成会员与客服只读工具、工单和审计。原有复盘批量录入等高级功能仍可在旧版工作台完成。
+
+### 真实模型验收（主动付费）
+
+本地启动 DeepSeek 模式后运行 `python scripts/live_retail.py --confirm-paid`。脚本提交新的营销需求、检查实际模型来源、运行客服原生工具循环并验证供应商响应 ID；不把 Mock 通过当成真实模型成功。默认 CI 不访问收费服务。模型额度由 .env 中 LLM_MAX_CALLS 与 LLM_BUDGET_CNY 控制，日志是保守上界而非实际账单。
