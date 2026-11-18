@@ -175,3 +175,11 @@ class ExecutionObservation(Base):
     contact_number: Mapped[int] = mapped_column(Integer,default=0)
     data: Mapped[dict] = mapped_column(JSON)
     __table_args__ = (UniqueConstraint("campaign_id", "candidate_id", "revision", "customer_id", "outcome", "contact_number"),)
+
+
+class SupportAudit(Base):
+    __tablename__ = "support_audits"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("support_sessions.id"), index=True)
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)

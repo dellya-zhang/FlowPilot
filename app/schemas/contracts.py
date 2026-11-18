@@ -94,6 +94,7 @@ class ArtifactView(BaseModel):
 
 class SupportMessageInput(InputModel):
     content: str = Field(min_length=1, max_length=2000)
+    use_model: bool = False
 
 
 class SupportDecision(BaseModel):
@@ -104,3 +105,4 @@ class SupportDecision(BaseModel):
 
     facts: list[dict[str, str]] = Field(default_factory=list)
     decision: dict | None = None
+    citations: list[dict] = Field(default_factory=list)

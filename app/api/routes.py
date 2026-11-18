@@ -16,7 +16,7 @@ from app.services.planning import planning_input, missing_inputs, audience_pool,
 from app.services.strategy_design import variants
 from app.services.versions import checked_snapshot, bind_decision
 from app.services.limiter import limit
-from app.services.support import history
+from app.services.support import history, audit_history
 from app.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1")
@@ -263,7 +263,20 @@ async def new_support_session(db: AsyncSession = Depends(session_dep)):
 async def support_message(session_id: str, data: SupportMessageInput, request: Request,
                           db: AsyncSession = Depends(session_dep)):
     await limit(request, "support", 30)
-    return await send_message(db, session_id, data.content)
+    if not data.use_model or get_settings().ai_provider == "mock":
+        return await send_message(db, session_id, data.content)
+    slots=request.app.state.model_slots
+    try:
+        await asyncio.wait_for(slots.acquire(), timeout=0.2)
+    except TimeoutError:
+        raise HTTPException(429, "Model capacity reached")
+    try:
+        return await asyncio.wait_for(send_message(db, session_id, data.content, True), timeout=12)
+    except TimeoutError:
+        await db.rollback()
+        raise HTTPException(504, "Support model timed out; retry without model")
+    finally:
+        slots.release()
 
 
 @router.post("/support/sessions/{session_id}/confirm", response_model=SupportDecision)
@@ -282,3 +295,8 @@ async def support_session_status(session_id: str, db: AsyncSession = Depends(ses
 @router.get("/support/sessions/{session_id}/messages")
 async def support_history(session_id: str, db: AsyncSession = Depends(session_dep)):
     return await history(db, session_id)
+
+
+@router.get("/support/sessions/{session_id}/audit")
+async def support_audit(session_id: str, db: AsyncSession = Depends(session_dep)):
+    return await audit_history(db,session_id)

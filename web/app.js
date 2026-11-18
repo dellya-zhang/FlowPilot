@@ -51,6 +51,11 @@ async function renderExperiment(){
     const armBox=el('div','',box);armBox.className='experiment-arm';const matched=xs.find(x=>x.id===arm.candidate_id);
     el('h3',matched?.title||('方案 '+arm.candidate_id.slice(0,8)),armBox);
     el('p',arm.users.length+' 位试点用户 · '+arm.conversions+' 位模拟回流 · 比率 '+(100*arm.rate).toFixed(1)+'%',armBox);
+    const artifact=exp.binding?.pilot_artifacts?.[arm.candidate_id];
+    if(artifact)button('下载试点 CSV · '+artifact.row_count+' 人',armBox,async()=>{
+      const response=await fetch('/api/v1/experiments/'+id+'/arms/'+arm.candidate_id+'/download',{headers:token?{'Authorization':'Bearer '+token}:{}});
+      if(!response.ok)throw Error('下载失败');const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download='pilot-'+arm.candidate_id+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
     if(exp.status==='RUNNING'){
       button('记录一名模拟转化',armBox,async()=>{await api('/experiments/'+id+'/feedback','POST',{event_id:id+'-'+arm.users[0],candidate_id:arm.candidate_id,customer_id:arm.users[0]});await renderExperiment()});
     }

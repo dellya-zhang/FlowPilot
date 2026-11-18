@@ -10,7 +10,13 @@ from app.schemas.contracts import InputModel
 from app.models.entities import Campaign, Candidate, Customer, Experiment, Conversion, ExperimentBinding
 from app.services.campaigns import require_campaign, emit
 from app.services.planning import audience_pool, planning_input, freeze_audience
-from app.services.versions import checked_snapshot, comparison_contract, bind_decision
+from app.services.versions import checked_snapshot, comparison_contract, bind_decision, digest
+from app.agents.materialize import delivery_graph
+from app.services.storage import put_blob, get_verified_blob
+from fastapi.responses import Response
+from types import SimpleNamespace
+import asyncio
+from botocore.exceptions import BotoCoreError
 
 router = APIRouter(prefix="/api/v1/experiments", tags=["experiments"])
 
@@ -67,9 +73,31 @@ async def create(data: ExperimentInput, db=Depends(session_dep)):
     exp = Experiment(campaign_id=campaign.id, arms=arms)
     db.add(exp)
     await db.flush()
-    db.add(ExperimentBinding(experiment_id=exp.id,data={"bound_at":datetime.now(timezone.utc).isoformat(),"snapshots":{s["candidate_id"]:s for s in snapshots},"comparison":comparison}))
+    artifacts = {}
+    by_id = {row.id:row for row in rows}
+    for snapshot in snapshots:
+        cid=snapshot["candidate_id"]
+        bound={"candidate_id":cid,"revision":snapshot["revision"],"snapshot":snapshot,"snapshot_sha256":digest(snapshot)}
+        delivery=await delivery_graph.ainvoke({"binding":bound,"customers":[by_id[uid] for uid in arms[cid]],"budget":campaign.budget,"kind":"pilot"})
+        key=f"campaigns/{campaign.id}/experiments/{exp.id}/{cid}-{delivery['sha256'][:12]}.csv"
+        try:
+            await asyncio.to_thread(put_blob,key,delivery["blob"])
+        except (OSError,BotoCoreError) as exc:
+            raise HTTPException(503,"Pilot storage unavailable") from exc
+        artifacts[cid]={"key":key,"sha256":delivery["sha256"],"row_count":len(arms[cid]),"trace":delivery["trace"]}
+    db.add(ExperimentBinding(experiment_id=exp.id,data={"bound_at":datetime.now(timezone.utc).isoformat(),"snapshots":{s["candidate_id"]:s for s in snapshots},"comparison":comparison,"pilot_artifacts":artifacts}))
     await db.commit()
     return {"id": exp.id, "arms": arms, "status": exp.status}
+
+
+@router.get("/{eid}/arms/{candidate_id}/download")
+async def download_arm(eid: str, candidate_id: str, db=Depends(session_dep)):
+    binding=await db.get(ExperimentBinding,eid)
+    artifact=(binding.data.get("pilot_artifacts",{}) if binding else {}).get(candidate_id)
+    if not artifact:
+        raise HTTPException(404,"Pilot artifact not found")
+    body=await asyncio.to_thread(get_verified_blob,SimpleNamespace(**artifact))
+    return Response(body,media_type="text/csv",headers={"Content-Disposition":f'attachment; filename="pilot-{candidate_id}.csv"',"X-Content-SHA256":artifact["sha256"]})
 
 
 @router.post("/{eid}/feedback")

@@ -8,6 +8,7 @@ import random
 from fastapi import HTTPException
 from sqlalchemy import select, delete, update
 from app.agents.marketing import marketing_graph
+from app.agents.materialize import delivery_graph
 from app.db.base import SessionLocal
 from app.models.entities import Campaign, Candidate, Event, Customer, Artifact, Experiment, CandidatePlan, PlanningContext, PlanRevision, DecisionBinding, ArtifactBinding
 from app.services.planning import planning_input, audience_pool, PlanNeedsClarification
@@ -186,21 +187,10 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
         customers.sort(key=lambda c: c.id)
     decision=await db.get(DecisionBinding,campaign.id)
     binding=decision.data if decision else None
-    # Recheck the actual frozen text and actual audience cost before publication.
-    from app.services.rules import check_marketing
-    if binding:
-        snapshot = binding["snapshot"]
-        plan = snapshot.get("plan_data") or {}
-        issues = check_marketing(snapshot["title"] + "\n" + snapshot["message"], campaign.budget)
-        estimate = plan.get("cost_estimate") or {}
-        strategy = plan.get("strategy") or {}
-        unit = estimate.get("unit_cost_cny") or 0
-        if unit * strategy.get("contacts_per_user", 1) * len(customers) > campaign.budget:
-            issues.append("delivery_budget_exceeded")
-        if issues:
-            raise HTTPException(422, {"message": "Delivery blocked by compliance", "issues": issues})
-    blob = generate_csv(customers,binding)
-    digest = hashlib.sha256(blob).hexdigest()
+    if not binding:
+        raise HTTPException(409, "Missing approved snapshot; approve a new plan")
+    delivery = await delivery_graph.ainvoke({"binding":binding,"customers":customers,"budget":campaign.budget,"kind":kind})
+    blob, digest = delivery["blob"], delivery["sha256"]
     key = f"campaigns/{campaign.id}/{kind}-{digest[:12]}.csv"
     try:
         await asyncio.to_thread(put_blob, key, blob)
@@ -210,7 +200,7 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
     db.add(artifact)
     await db.flush()
     if binding:
-        artifact.binding={**binding,"exported_at":datetime.now(timezone.utc).isoformat(),"kind":kind,"audience_ids":[c.id for c in customers]}
+        artifact.binding={**binding,"exported_at":datetime.now(timezone.utc).isoformat(),"kind":kind,"audience_ids":[c.id for c in customers],"delivery_trace":delivery["trace"]}
         db.add(ArtifactBinding(artifact_id=artifact.id,data=artifact.binding))
     return artifact
 

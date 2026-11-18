@@ -164,3 +164,9 @@ docs/          设计及验证记录
 [LICENSE](LICENSE)
 
 [本轮业务流程改造与兼容性说明](docs/业务流程改造.md)
+
+## Agent 运行时
+
+- [营销物化图](app/agents/materialize.py)：冻结快照校验、客群校验、正式交接内容、终态合规、CSV 组装。普通交付和 A/B 两臂使用同一执行图；独立保存试点 CSV 及 SHA256。正式内容使用已审批文案，避免未经审批的模型改写。
+- [客服执行图](app/agents/support.py)：意图分流、只读工具、确定性决策、用户确认与落档。可选模型仅选择只读工具及真实检索证据 ID；默认规则模式；不执行外部写操作。[客服 H5](web/support.html) 本地入口为 /support.html。
+- [运行时设计与验收](docs/agent-runtime.md)。
