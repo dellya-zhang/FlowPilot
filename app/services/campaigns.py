@@ -18,7 +18,7 @@ from app.services.rules import check_marketing
 from app.services.strategy_design import variants
 from app.services.versions import current_snapshot, save_revision
 from app.services.storage import put_blob, get_verified_blob
-from botocore.exceptions import BotoCoreError
+from botocore.exceptions import BotoCoreError, ClientError
 from app.core.config import get_settings
 from app.services.leases import claim, fence, renew, release, LostLease
 
@@ -194,7 +194,7 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
     key = f"campaigns/{campaign.id}/{kind}-{digest[:12]}.csv"
     try:
         await asyncio.to_thread(put_blob, key, blob)
-    except (OSError, BotoCoreError) as exc:
+    except (OSError, BotoCoreError, ClientError) as exc:
         raise HTTPException(503, "Artifact storage unavailable", headers={"Retry-After":"2"}) from exc
     artifact = Artifact(campaign_id=campaign.id, kind=kind, key=key, sha256=digest, row_count=len(customers))
     db.add(artifact)

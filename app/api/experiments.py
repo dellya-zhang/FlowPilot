@@ -16,7 +16,7 @@ from app.services.storage import put_blob, get_verified_blob
 from fastapi.responses import Response
 from types import SimpleNamespace
 import asyncio
-from botocore.exceptions import BotoCoreError
+from botocore.exceptions import BotoCoreError, ClientError
 
 router = APIRouter(prefix="/api/v1/experiments", tags=["experiments"])
 
@@ -82,7 +82,7 @@ async def create(data: ExperimentInput, db=Depends(session_dep)):
         key=f"campaigns/{campaign.id}/experiments/{exp.id}/{cid}-{delivery['sha256'][:12]}.csv"
         try:
             await asyncio.to_thread(put_blob,key,delivery["blob"])
-        except (OSError,BotoCoreError) as exc:
+        except (OSError, BotoCoreError, ClientError) as exc:
             raise HTTPException(503,"Pilot storage unavailable") from exc
         artifacts[cid]={"key":key,"sha256":delivery["sha256"],"row_count":len(arms[cid]),"trace":delivery["trace"]}
     db.add(ExperimentBinding(experiment_id=exp.id,data={"bound_at":datetime.now(timezone.utc).isoformat(),"snapshots":{s["candidate_id"]:s for s in snapshots},"comparison":comparison,"pilot_artifacts":artifacts}))

@@ -3,9 +3,8 @@ import hashlib
 import os
 import tempfile
 from fastapi import HTTPException
-from botocore.exceptions import BotoCoreError
+from botocore.exceptions import BotoCoreError, ClientError
 import boto3
-from botocore.exceptions import ClientError
 from app.core.config import get_settings
 
 
@@ -21,8 +20,14 @@ def put_blob(key: str, body: bytes):
         client = _client()
         try:
             client.head_bucket(Bucket=cfg.s3_bucket)
-        except ClientError:
-            client.create_bucket(Bucket=cfg.s3_bucket)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") not in ("404", "NoSuchBucket", "NotFound"):
+                raise
+            try:
+                client.create_bucket(Bucket=cfg.s3_bucket)
+            except ClientError as creation_error:
+                if creation_error.response.get("Error", {}).get("Code") != "BucketAlreadyOwnedByYou":
+                    raise
         client.put_object(Bucket=cfg.s3_bucket, Key=key, Body=body, ContentType="text/csv")
     else:
         root = Path(cfg.artifact_dir).resolve()
@@ -58,7 +63,7 @@ def get_blob(key: str) -> bytes:
 def get_verified_blob(artifact):
     try:
         body = get_blob(artifact.key)
-    except (OSError, BotoCoreError) as exc:
+    except (OSError, BotoCoreError, ClientError) as exc:
         raise HTTPException(503, "Artifact storage unavailable", headers={"Retry-After":"2"}) from exc
     if hashlib.sha256(body).hexdigest() != artifact.sha256:
         raise HTTPException(503, "Artifact integrity check failed")
