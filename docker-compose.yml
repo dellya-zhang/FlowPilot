@@ -3,6 +3,9 @@ services:
     build: .
     ports: ["127.0.0.1:8000:8000"]
     environment:
+      # Keep service-to-service requests on the Compose network when the host uses a proxy.
+      NO_PROXY: &internal_no_proxy "localhost,127.0.0.1,postgres,redis,clickhouse,minio,${NO_PROXY:-},${no_proxy:-}"
+      no_proxy: *internal_no_proxy
       ACCESS_TOKEN: ${ACCESS_TOKEN:-}
       DATABASE_URL: postgresql+asyncpg://agent:agentpassword@postgres:5432/agent
       AI_PROVIDER: ${AI_PROVIDER:-mock}
