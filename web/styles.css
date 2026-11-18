@@ -979,3 +979,5 @@ body[data-view="support"] #chatlog{height:330px}
 
 .campaign-summary{font-size:12px;color:#526275;margin:12px 0;padding:10px 0;border-bottom:1px solid var(--line)}
 #campaignSearch{margin-bottom:4px}#supportTrace{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px}#supportAudit{margin:12px 0}body[data-view="support"] .workspace{max-width:720px}body[data-view="support"] .support-panel{padding:24px}body[data-view="support"] #chatlog{min-height:360px;background:#f5f7fa;border:1px solid var(--line);border-radius:5px;padding:16px}
+
+.section-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0}.section-nav button{flex:0 0 auto}.main-column .panel,.delivery-actions{scroll-margin-top:18px}

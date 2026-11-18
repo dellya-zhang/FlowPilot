@@ -21,6 +21,7 @@
     document.querySelector('.right-column').hidden = view === 'marketing';
     byId('journeyIntro').hidden = view !== 'marketing';
   }
+  document.querySelectorAll("[data-section]").forEach(b=>b.addEventListener("click",()=>document.querySelector("."+b.dataset.section).scrollIntoView({block:"start",behavior:"smooth"})));
   window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
   showView(location.hash.slice(1));
   const scenarios = {
@@ -44,7 +45,7 @@
       NEEDS_CLARIFICATION: ['需要补充策略信息', '在左侧填写已确认权益，保存补充信息后，继续生成当前计划。'],
       CREATED: ['准备生成', '点击继续生成当前计划；创建成功但启动失败的任务也可在这里继续。'],
       GENERATING: ['正在生成候选', '候选会陆续出现。等待生成完成后，再选择审批或 A/B 路线。'],
-      WAITING_APPROVAL: experiment ? ['下一步 · 观察双臂反馈并人工晋级', '在下方实验区记录模拟转化，再选择胜出方案。普通审批已关闭。'] : ['下一步 · 选择决策路线', '直接审批一套候选，或在下方创建 A/B 双臂试点。选择后不能切换路线。'],
+      WAITING_APPROVAL: experiment ? ['下一步 · 观察双臂反馈并人工晋级', '在下方实验区记录模拟转化，结算后再选择胜出方案。普通审批已关闭。'] : ['下一步 · 选择决策路线', '直接审批一套候选，或在下方创建 A/B 双臂试点。选择后不能切换路线。'],
       PILOT_READY: ['下一步 · 全量名单交付', '普通方案审批后可以直接导出全量名单。旧版单方案试点仍可选用。'],
       PILOT_EXPORTED: ['下一步 · 全量排重交付', experiment ? '胜出方案已确认。全量交付将排除两臂全部试点用户。' : '试点名单已就绪。全量交付将排除已参加试点的用户。'],
       COMPLETED: ['交付完成 · 下载 CSV', '下方产物区可下载名单。可回看执行记录，或在左侧创建新任务。'],

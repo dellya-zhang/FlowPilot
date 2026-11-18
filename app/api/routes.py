@@ -195,6 +195,8 @@ async def pilot(campaign_id: str, db: AsyncSession = Depends(session_dep)):
         raise HTTPException(409, "Approve a candidate before pilot export")
     if await db.scalar(select(Experiment.id).where(Experiment.campaign_id == campaign_id)):
         raise HTTPException(409, "Experiment cohorts already define the pilot; no separate pilot export")
+    if campaign.status == "COMPLETED" and not await db.scalar(select(Artifact.id).where(Artifact.campaign_id == campaign_id, Artifact.kind == "pilot")):
+        raise HTTPException(409, "Cannot create a new pilot after full delivery")
     artifact = await export_audience(db, campaign, "pilot")
     if campaign.status == "PILOT_READY":
         campaign.status = "PILOT_EXPORTED"
@@ -267,6 +269,14 @@ async def support_message(session_id: str, data: SupportMessageInput, request: R
 @router.post("/support/sessions/{session_id}/confirm", response_model=SupportDecision)
 async def support_confirm(session_id: str, approved: bool, db: AsyncSession = Depends(session_dep)):
     return await confirm_action(db, session_id, approved)
+
+
+@router.get("/support/sessions/{session_id}")
+async def support_session_status(session_id: str, db: AsyncSession = Depends(session_dep)):
+    session = await db.get(SupportSession, session_id)
+    if session is None:
+        raise HTTPException(404, "Support session not found")
+    return {"session_id": session.id, "session_status": session.status, "needs_confirmation": bool(session.pending_action)}
 
 
 @router.get("/support/sessions/{session_id}/messages")

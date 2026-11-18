@@ -162,3 +162,5 @@ docs/          设计及验证记录
 尚未实现生产级账户和租户隔离、真实渠道投放、订单或支付退款、ClickHouse 查询、跨主机全局预算以及图级 checkpoint。详见[设计差异](docs/项目逻辑审计与设计差异.md)与[变更记录](CHANGELOG.md)。
 
 [LICENSE](LICENSE)
+
+[本轮业务流程改造与兼容性说明](docs/业务流程改造.md)

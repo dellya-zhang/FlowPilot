@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);let cid=null,sid=sessionStorage.getItem('sid'),xs=[],stream=null,exp=null;let refreshSequence=0;let currentCampaign=null;let token='';sessionStorage.removeItem('token');$('token').value=token;
 let currentPlanning=null,streamRefreshTimer=null;
 function scheduleStreamRefresh(){clearTimeout(streamRefreshTimer);streamRefreshTimer=setTimeout(()=>guard(refresh),150)}
-const statuses={NEEDS_CLARIFICATION:'等待补充策略信息',CREATED:'待生成',GENERATING:'生成中',WAITING_APPROVAL:'等待人工审批',PILOT_READY:'可交付试点',PILOT_EXPORTED:'试点已完成',COMPLETED:'全量已交付',FAILED:'生成失败'};
+const statuses={NEEDS_CLARIFICATION:'等待补充策略信息',CREATED:'待生成',GENERATING:'生成中',WAITING_APPROVAL:'等待人工审批',PILOT_READY:'已审批 / 可交付',PILOT_EXPORTED:'试点已完成',COMPLETED:'全量已交付',FAILED:'生成失败'};
 async function api(path,method='GET',body,extraHeaders={}){const r=await fetch('/api/v1'+path,{method,headers:{'Content-Type':'application/json',...extraHeaders,...(token?{'Authorization':'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok){const error=Error(typeof data.detail==='string'?data.detail:JSON.stringify(data));error.status=r.status;throw error}return data}
 function el(tag,text,parent){const n=document.createElement(tag);n.textContent=text;parent.append(n);return n}function button(text,parent,fn){const b=el('button',text,parent);b.className='secondary';b.onclick=()=>guard(fn,b);return b}
 async function guard(fn,b){$('notice').textContent='';if(b?.dataset.busy)return;if(b)b.dataset.busy='1';const wasDisabled=b?.disabled;if(b)b.disabled=true;try{await fn()}catch(e){$('notice').textContent=e.message||'连接失败，请检查本地服务'}finally{if(b){delete b.dataset.busy;b.disabled=wasDisabled||false;}if(currentCampaign)syncControls(currentCampaign)}}
@@ -45,7 +45,8 @@ async function renderExperiment(){
     button('结算实验',box,async()=>{await api('/experiments/'+id+'/finalize','POST',{simulation_reason:reason.value.trim()||null});await renderExperiment()});
   }
   const result=exp.binding?.finalize_result;
-  if(result)el('p',result.recommended_candidate_id?'推荐：'+(xs.find(x=>x.id===result.recommended_candidate_id)?.title||result.recommended_candidate_id):'两组转化率相同，暂无推荐。',box).className='hint';
+  if(result?.early_simulation)el('p','模拟提前结算：'+result.simulation_reason,box).className='hint';
+  if(result)el('p',result.recommended_candidate_id?'描述性推荐：'+(xs.find(x=>x.id===result.recommended_candidate_id)?.title||result.recommended_candidate_id):'两组转化率相同，暂无推荐。',box).className='hint';
   for(const arm of exp.arms){
     const armBox=el('div','',box);armBox.className='experiment-arm';const matched=xs.find(x=>x.id===arm.candidate_id);
     el('h3',matched?.title||('方案 '+arm.candidate_id.slice(0,8)),armBox);
@@ -63,7 +64,7 @@ async function renderExperiment(){
 }
 async function chat(){if(!sid){sid=(await api('/support/sessions','POST')).session_id;sessionStorage.setItem('sid',sid)}const result=await api('/support/sessions/'+sid+'/messages','POST',{content:$('message').value});await history();$('confirmBox').hidden=!result.needs_confirmation;$('supportAudit').hidden=!result.decision;$('supportTrace').textContent=result.decision?JSON.stringify(result.decision,null,2):''}
 $('newSupport').onclick=()=>guard(async()=>{sid=(await api('/support/sessions','POST')).session_id;sessionStorage.setItem('sid',sid);$('confirmBox').hidden=true;$('supportAudit').hidden=true;await history()});
-async function history(){if(!sid)return;const rows=await api('/support/sessions/'+sid+'/messages');$('chatlog').replaceChildren();for(const r of rows)el('p',r.content,$('chatlog')).className=r.role;$('chatlog').scrollTop=$('chatlog').scrollHeight}
+async function history(){if(!sid)return;const [rows,state]=await Promise.all([api('/support/sessions/'+sid+'/messages'),api('/support/sessions/'+sid)]);$('confirmBox').hidden=!state.needs_confirmation;$('chatlog').replaceChildren();for(const r of rows)el('p',r.content,$('chatlog')).className=r.role;$('chatlog').scrollTop=$('chatlog').scrollHeight}
 $('create').onclick=()=>guard(async()=>{const c=await api('/campaigns','POST',{brief:$('brief').value,audience:$('audience').value,budget:Number($('budget').value),planning:readPlanningInput()});try{if(c.status==='CREATED')await api('/campaigns/'+c.id+'/generate','POST')}finally{await select(c.id)}},$('create'));
 for(const [id,fn] of Object.entries({pilot:async()=>{await api('/campaigns/'+cid+'/pilot','POST');await refresh()},finalize:async()=>{await api('/campaigns/'+cid+'/full','POST');await refresh()},experiment,send:chat,confirm:()=>confirm(true),cancel:()=>confirm(false)}))$(id).onclick=()=>guard(fn,$(id));
 async function confirm(ok){await api('/support/sessions/'+sid+'/confirm?approved='+ok,'POST');$('confirmBox').hidden=true;await history()}
@@ -72,7 +73,7 @@ setInterval(()=>{if(cid&&(token||window.FlowPilotDemo))guard(refresh)},2000);gua
 
 function syncControls(c){
   const isExperiment=!!sessionStorage.getItem('exp-'+c.id);
-  $('pilot').disabled=isExperiment||!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status);
+  $('pilot').disabled=isExperiment||!['PILOT_READY','PILOT_EXPORTED'].includes(c.status);
   $('finalize').disabled=!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status);
   $('experiment').disabled=isExperiment||c.status!=='WAITING_APPROVAL'||selectedExperimentIds().length!==2;
   $('phaseBadge').textContent=statuses[c.status]||c.status;

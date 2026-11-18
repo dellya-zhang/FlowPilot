@@ -71,6 +71,7 @@
         if(action==='finalize'&&!['PILOT_EXPORTED','COMPLETED'].includes(c.status))error(409,'请先完成试点或晋级');
         if(action==='full'&&(!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status)||exp&&exp.status!=='PROMOTED'))error(409,'请先审批或晋级');
         let a=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind===kind);
+        if(kind==='pilot'&&c.status==='COMPLETED'&&!a)error(409,'全量交付后不能新建试点名单');
         if(!a) {
           let rows=pool(c),pilot=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind==='pilot');
           if(kind==='pilot')rows=rows.slice(0,c.planning?Math.max(1,Math.ceil(rows.length*c.planning.pilot_ratio)):25);
@@ -82,7 +83,7 @@
           const csv='\ufeff'+columns.join(',')+'\r\n'+rows.map(p=>[p.id,p.segment,p.region].concat(binding?[binding.candidate_id,binding.revision,binding.snapshot.plan_data?.strategy.channel||'manual',binding.snapshot.plan_data?.strategy.contacts_per_user||1,safe(binding.snapshot.message)]:[]).map(quote).join(',')).join('\r\n');
           a={id:id(),campaign_id:cid,kind,row_count:rows.length,sha256:await hash(csv),binding,csv,users:rows.map(p=>p.id)};db.artifacts[a.id]=a;
         }
-        c.status=kind==='pilot'?'PILOT_EXPORTED':'COMPLETED';event(cid,kind==='pilot'?'pilot.exported':'campaign.completed',{rows:a.row_count});save();
+        if(c.status!=='COMPLETED')c.status=kind==='pilot'?'PILOT_EXPORTED':'COMPLETED';event(cid,kind==='pilot'?'pilot.exported':'campaign.completed',{rows:a.row_count});save();
         const {csv,...view}=a;return response(view);
       }
     }
@@ -133,9 +134,10 @@
       const sid=parts[2],verb=parts[3];
       if(!sid&&method==='POST'){const sid=id();db.sessions[sid]={session_id:sid,status:'OPEN',pending:false,messages:[]};save();return response(db.sessions[sid],201);}
       const s=db.sessions[sid];if(!s)error(404,'会话不存在，重置演示后请刷新页面');
-      if(verb==='messages'&&method==='GET')return response(s.messages);
+      if(!verb&&method==='GET')return response({session_id:sid,session_status:s.status,needs_confirmation:!!s.pending});
+      if(verb==='messages'&&method==='GET')return response(s.messages.slice(-50));
       const finish=approved=>{s.pending=false;s.status=approved?'ESCALATED':'OPEN';return approved?'已记录人工审核申请（在线演示，不创建真实工单）。':'已取消申请。';};
-      let reply,intent='faq';
+      let reply,intent='faq',decision=null;
       if(verb==='confirm'&&method==='POST'){if(!s.pending)error(409,'没有待确认申请');reply=finish(url.searchParams.get('approved')==='true');intent='refund';}
       else if(verb==='messages'&&method==='POST') {
         const text=(data.content||'').trim();if(!text)error(422,'请输入问题');s.messages.push({role:'user',content:text});
@@ -143,11 +145,12 @@
         else if(s.pending)reply='已有待确认申请，请先确认或取消。';
         else if(/不退款|不要退款|不想退款|不用退款|不需要退款|不申请退款|do not refund|don't refund|no refund/i.test(text)){intent='clarify';reply='未提交退款审核申请。如需查询政策或订单，请说明具体问题。';}
         else if(/退款|refund|退钱/i.test(text)&&/我要|我想|申请|帮我|给我|please refund|want a refund|request a refund/i.test(text)&&!/政策|规则|条件|是什么|怎么|如何|能否|可以吗|policy|how|can i/i.test(text)){s.pending=true;s.status='WAITING_CONFIRMATION';intent='refund';reply='是否确认提交退款人工审核申请？在线演示不执行退款。';}
+        else if(/我要|我想|帮我|申请|给我/.test(text)&&/(投诉|催.*物流|物流.*催)/.test(text)){intent='handoff';decision={rule:{rule_id:/投诉/.test(text)?'complaint_handoff':'shipping_handoff',action:'handoff',fallback:false}};reply='建议联系人工客服处理；当前未连接人工客服系统。';}
         else if(text.includes('退款'))reply='退款需提交订单信息并由人工审核，本演示不执行资金操作。';
         else if(/订单|物流/.test(text))reply='演示未连接真实订单和物流系统，不能读取个人订单。';
         else reply='我可以演示会员政策、订单工具路由和退款审核确认。';
       } else error(404,'未支持的客服操作');
-      s.messages.push({role:'assistant',content:reply});save();return response({reply,intent,session_status:s.status,needs_confirmation:s.pending,facts:[]});
+      if(s.pending&&intent==='refund')decision={rule:{rule_id:'refund_confirmation',action:'confirm_with_user',fallback:false}};s.messages.push({role:'assistant',content:reply});save();return response({reply,intent,session_status:s.status,needs_confirmation:s.pending,facts:[],decision});
     }
     error(404,'在线演示未实现该接口，请运行完整后端');
   }

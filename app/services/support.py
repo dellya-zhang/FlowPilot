@@ -70,7 +70,10 @@ async def _confirm(db, session, approved):
     pending = session.pending_action
     session.pending_action = None
     session.status = "ESCALATED" if approved else "OPEN"
-    reply = "已记录人工审核申请（本地演示，无真实外部工单）。" if approved else "已取消申请，您可以继续咨询。"
+    if approved:
+        reply = "已记录人工审核申请（本地演示，无真实外部工单）。" if pending.get("type") in ("refund", "refund_review") else "已记录人工处理诉求（本地演示，无真实外部工单）。"
+    else:
+        reply = "已取消申请，您可以继续咨询。"
     db.add(SupportMessage(session_id=session.id, role="assistant", content=reply))
     await db.commit()
     return SupportDecision(reply=reply, intent="refund" if pending.get("type") in ("refund", "refund_review") else pending.get("type", "request"), needs_confirmation=False, session_status=session.status, decision={"confirmation": "confirm" if approved else "cancel", "rule": pending.get("decision")})
