@@ -129,7 +129,8 @@
         const text=(data.content||'').trim();if(!text)error(422,'请输入问题');s.messages.push({role:'user',content:text});
         if(s.pending&&['确认','好的','取消'].includes(text))reply=finish(text!=='取消');
         else if(s.pending)reply='已有待确认申请，请先确认或取消。';
-        else if(text.includes('退款')&&!/政策|规则|条件|是什么/.test(text)){s.pending=true;s.status='WAITING_CONFIRMATION';intent='refund';reply='是否确认提交退款人工审核申请？在线演示不执行退款。';}
+        else if(/不退款|不要退款|不想退款|不用退款|不需要退款|不申请退款|do not refund|don't refund|no refund/i.test(text)){intent='clarify';reply='未提交退款审核申请。如需查询政策或订单，请说明具体问题。';}
+        else if(/退款|refund|退钱/i.test(text)&&/我要|我想|申请|帮我|给我|please refund|want a refund|request a refund/i.test(text)&&!/政策|规则|条件|是什么|怎么|如何|能否|可以吗|policy|how|can i/i.test(text)){s.pending=true;s.status='WAITING_CONFIRMATION';intent='refund';reply='是否确认提交退款人工审核申请？在线演示不执行退款。';}
         else if(text.includes('退款'))reply='退款需提交订单信息并由人工审核，本演示不执行资金操作。';
         else if(/订单|物流/.test(text))reply='演示未连接真实订单和物流系统，不能读取个人订单。';
         else reply='我可以演示会员政策、订单工具路由和退款审核确认。';

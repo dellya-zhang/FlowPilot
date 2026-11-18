@@ -223,3 +223,15 @@ async def test_budget_preflight_and_title_policy(monkeypatch):
             await asyncio.gather(*list(app.state.tasks))
             assert (await c.get(path)).json()['status']=='FAILED'
             assert (await c.get(path+'/candidates')).json()==[]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("content", ["我不想退款", "不要退款", "退款怎么申请", "退款", "如何申请退款"])
+async def test_support_non_actionable_refund(content):
+    async with lifespan(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            sid = (await client.post("/api/v1/support/sessions")).json()["session_id"]
+            response = await client.post(f"/api/v1/support/sessions/{sid}/messages", json={"content": content})
+            assert response.status_code == 200
+            assert response.json()["needs_confirmation"] is False
+            assert (await client.post(f"/api/v1/support/sessions/{sid}/confirm?approved=true")).status_code == 409
