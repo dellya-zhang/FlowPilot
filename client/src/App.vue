@@ -7,7 +7,7 @@ const search=ref(''),status=ref(''),reason=ref(''),settlement=ref('浏览器演�
 const form=reactive({brief:'',audience:'dormant',budget:5000,known_benefits:'',min_days_since_purchase:30,min_lifetime_spend_cny:500,channel:'sms',unit_cost_cny:0.1,pilot_ratio:0.1,window_days:7,comparison_axis:'message',reference_message:'',contacts_per_user:1})
 const members=ref<Json[]>([]),member=ref(1),sid=ref(''),messages=ref<Json[]>([]),audits=ref<Json[]>([]),tickets=ref<Json[]>([]),pending=ref(false),question=ref(''),useModel=ref(false),lastMode=ref(''),chatBusy=ref(false)
 const labels:Record<string,string>={CREATED:'待生成',NEEDS_CLARIFICATION:'待补充',GENERATING:'生成中',WAITING_APPROVAL:'待审批',PILOT_READY:'待交付',PILOT_EXPORTED:'试点完成',COMPLETED:'已交付',FAILED:'失败',RUNNING:'试点观察',FINALIZED:'已结算',PROMOTED:'已晋级'}
-const tabs=[['campaigns','活动管理'],['plan','活动详情'],['members','会员画像'],['support','客服工作台'],['settings','运行设置']]
+const tabs=[['campaigns','活动管理'],['plan','活动详情'],['members','会员画像'],['support','客服工作台'],['consumer','消费者端'],['settings','运行设置']]
 const visible=computed(()=>campaigns.value.filter(c=>(!status.value||c.status===status.value)&&c.brief.toLowerCase().includes(search.value.toLowerCase())))
 const currentId=computed(()=>current.value?.id||'')
 const live=computed(()=>runtime.value.provider!=='mock'&&runtime.value.configured)
@@ -56,10 +56,10 @@ onBeforeUnmount(()=>{window.removeEventListener('hashchange',routeHash);if(timer
 </script>
 
 <template>
-<div class="shell">
+<div class="shell" :class="{consumer: view==='consumer'}">
   <aside class="side"><a class="brand" href="#campaigns">FlowPilot<span>零售会员运营</span></a><nav><button v-for="t in tabs" :key="t[0]" :class="{active:view===t[0]}" @click="route(t[0])">{{t[1]}}</button></nav><div class="side-foot">本地工作区<br>合成会员与订单</div></aside>
   <main>
-    <header class="top"><div><small>工作台 / {{tabs.find(t=>t[0]===view)?.[1]}}</small><h1>{{tabs.find(t=>t[0]===view)?.[1]}}</h1></div><span class="mode" :class="{live}">{{runtime.provider==='mock'?'离线模板':live?'模型已配置 · '+runtime.model:'模型未配置 / 未连接'}}</span></header>
+    <header class="top"><a v-if="view==='consumer'" href="#support">返回客服工作台</a><div><small>工作台 / {{tabs.find(t=>t[0]===view)?.[1]}}</small><h1>{{tabs.find(t=>t[0]===view)?.[1]}}</h1></div><span class="mode" :class="{live}">{{runtime.provider==='mock'?'离线模板':live?'模型已配置 · '+runtime.model:'模型未配置 / 未连接'}}</span></header>
     <div v-if="error" role="alert" class="error">{{error}}</div>
     <section v-if="view==='campaigns'">
       <div class="stats"><div><small>全部活动</small><strong>{{campaigns.length}}</strong></div><div><small>待审批</small><strong>{{campaigns.filter(c=>c.status==='WAITING_APPROVAL').length}}</strong></div><div><small>已交付</small><strong>{{campaigns.filter(c=>c.status==='COMPLETED').length}}</strong></div></div>
@@ -111,12 +111,12 @@ onBeforeUnmount(()=>{window.removeEventListener('hashchange',routeHash);if(timer
       </template>
     </section>
     <section v-else-if="view==='members'" class="panel"><div class="heading"><h2>合成会员数据库</h2><small>显示前 50 条，非真实个人</small></div><div class="scroll"><table><thead><tr><th>ID</th><th>等级</th><th>积分</th><th>最近消费间隔</th><th>累计消费</th></tr></thead><tbody><tr v-for="m in members" :key="m.id"><td>{{m.id}}</td><td>{{m.tier}}</td><td>{{m.points}}</td><td>{{m.days_since_purchase}} 天</td><td>¥{{m.lifetime_spend_cny}}</td></tr></tbody></table></div></section>
-    <section v-else-if="view==='support'" class="chat-grid"><div class="panel"><div class="heading"><h2>消费者会话</h2><button :disabled="chatBusy" @click="chat(startChat)">新会话</button></div><label>合成会员<select v-model.number="member" :disabled="chatBusy" @change="sid='';messages=[];audits=[];tickets=[];pending=false"><option v-for="m in members" :key="m.id" :value="m.id">会员 {{m.id}} · {{m.tier}}</option></select></label>
+    <section v-else-if="view==='support'||view==='consumer'" class="chat-grid"><div class="panel"><div class="heading"><h2>消费者会话</h2><button :disabled="chatBusy" @click="chat(startChat)">新会话</button></div><label>合成会员<select v-model.number="member" :disabled="chatBusy" @change="sid='';messages=[];audits=[];tickets=[];pending=false"><option v-for="m in members" :key="m.id" :value="m.id">会员 {{m.id}} · {{m.tier}}</option></select></label>
     <label class="check"><input type="checkbox" v-model="useModel" :disabled="!live||chatBusy"> 使用已配置模型（会发送合成业务上下文）</label><p class="hint" v-if="lastMode">本轮来源：{{lastMode}}</p>
     <div class="chat"><div v-if="!messages.length" class="bubble">您好，请问需要查询订单、积分或退款政策吗？</div><div v-for="(m,i) in messages" :key="i" :class="['bubble',m.role]">{{m.content}}</div></div>
     <div v-if="pending" class="confirm"><strong>待确认审核操作</strong><button :disabled="chatBusy" @click="chat(()=>confirm(true))">确认</button><button :disabled="chatBusy" @click="chat(()=>confirm(false))">取消</button></div>
     <div class="quick"><button v-for="q in ['我的订单','我的积分','退款政策是什么','查看物流']" :key="q" :disabled="chatBusy" @click="chat(()=>send(q))">{{q}}</button></div><form class="send" @submit.prevent="chat(()=>send())"><input v-model="question" placeholder="请输入问题" maxlength="2000" required><button class="primary" :disabled="chatBusy">{{chatBusy?'处理中':'发送'}}</button></form></div>
-    <div class="panel"><h2>工具调用记录</h2><p class="hint">仅显示实际执行记录；模型不能授权业务写操作。</p><details v-for="a in audits.slice().reverse()" :key="a.id"><summary>#{{a.id}} · {{a.intent}} · {{a.decision?.mode||'确认'}}</summary><pre>{{pretty(a.decision)}}</pre><pre v-if="a.citations?.length">{{pretty(a.citations)}}</pre></details><h2>本地审核工单</h2><div class="artifact" v-for="t in tickets" :key="t.id"><div>{{t.order_id}}<small>{{t.id}}</small></div><span class="pill">{{t.status}}</span></div></div></section>
+    <div v-if="view==='support'" class="panel"><h2>工具调用记录</h2><p class="hint">仅显示实际执行记录；模型不能授权业务写操作。</p><details v-for="a in audits.slice().reverse()" :key="a.id"><summary>#{{a.id}} · {{a.intent}} · {{a.decision?.mode||'确认'}}</summary><pre>{{pretty(a.decision)}}</pre><pre v-if="a.citations?.length">{{pretty(a.citations)}}</pre></details><h2>本地审核工单</h2><div class="artifact" v-for="t in tickets" :key="t.id"><div>{{t.order_id}}<small>{{t.id}}</small></div><span class="pill">{{t.status}}</span></div></div></section>
     <section v-else class="panel"><h2>模型与访问设置</h2><p>API Key 只在本地后端 .env 文件中配置，网页不接收密钥。真实模型是否成功调用，以执行记录、供应商响应 ID、Usage 日志为准。离线模板不产生付费调用。</p><label>可选共享工作区令牌<input v-model="token" type="password" autocomplete="off" placeholder="ACCESS_TOKEN（非模型 API Key）"></label><button @click="guard(load)">刷新连接配置</button><pre>{{pretty(runtime)}}</pre><p><a href="/docs" target="_blank" rel="noopener">API 文档</a> · <a href="/" target="_blank" rel="noopener">旧版完整工作台</a></p></section>
   </main>
 </div>

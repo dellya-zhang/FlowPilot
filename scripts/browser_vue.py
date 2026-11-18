@@ -37,6 +37,12 @@ with tempfile.TemporaryDirectory() as tmp:
             page.get_by_role("button",name="确认",exact=True).click()
             page.wait_for_function("document.body.innerText.includes('PENDING_REVIEW')")
             page.screenshot(path=str(out/"support.png"),full_page=True)
+            page.get_by_role("button",name="消费者端").click()
+            page.set_viewport_size({"width":390,"height":844})
+            page.screenshot(path=str(out/"consumer-mobile.png"),full_page=True)
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            page.set_viewport_size({"width":1440,"height":1000})
+            page.get_by_role("link",name="返回客服工作台").click()
             page.get_by_role("button",name="活动管理").click()
             page.screenshot(path=str(out/"campaigns.png"))
             assert not errors,errors

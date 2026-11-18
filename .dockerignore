@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+**/node_modules
+**/__pycache__
+.venv
+artifacts
+*.db
+*.sqlite
+*.sqlite3
+web/console
+browser-evidence
+vue-evidence

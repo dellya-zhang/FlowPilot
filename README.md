@@ -194,3 +194,5 @@ docs/          设计及验证记录
 ### ClickHouse 人群索引
 
 本地 Compose 增加 ClickHouse：启动时将合成会员画像投影到 ReplacingMergeTree，营销圈选通过参数化 HTTP SQL 查询人群 ID，再以 PostgreSQL 的当前同意状态与画像条件二次校验、冻结名单。SQLite 模式不依赖 ClickHouse。已配置的 ClickHouse 故障时返回 503 而非静默换引擎。当前仅启动时刷新静态合成索引，无 CDC 或真实数据同步。新增 Compose 集成 CI 验证 PostgreSQL、Redis 配置、ClickHouse 与 MinIO 的业务交付路径；以实际 CI 结果为准。
+
+**对象存储镜像说明（2026-11）：** 旧 `minio/minio` Docker Hub 镜像已无法拉取；Compose 默认使用固定版本、S3 兼容的 [SILO（MinIO 社区维护分支）](https://github.com/pgsty/silo)，而不是声称仍在运行原版 MinIO。可通过 `S3_IMAGE` 更换兼容镜像；本地已有 MinIO 也可用 `S3_ENDPOINT_URL` 接入。该选择仅用于本地合成业务数据，正式环境需要独立安全和恢复评估。
