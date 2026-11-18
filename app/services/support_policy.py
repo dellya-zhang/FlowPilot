@@ -31,6 +31,12 @@ def screen(content, pending=None):
             if any(w in text for w in words) and (intent != "shipping_request" or "催" in text):
                 result.update(branch="complex", intent=intent)
                 return result
+        if any(w in text for w in ("查", "看", "check", "look up")):
+            if "订单" in text or "order" in text:
+                result["intent"] = "order_lookup"
+                return result
+            if any(w in text for w in ("积分", "会员", "物流", "points", "shipping")):
+                return result
         result.update(branch="complex", intent="unknown_request")
     elif any(w in text for w in ("订单", "order")) and not any(w in text for w in ("退款", "refund")):
         result["intent"] = "order_lookup"

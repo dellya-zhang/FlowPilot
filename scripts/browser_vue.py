@@ -20,9 +20,13 @@ with tempfile.TemporaryDirectory() as tmp:
             page=browser.new_page(viewport={"width":1440,"height":1000},accept_downloads=True);errors=[]
             page.on("pageerror",lambda e:errors.append(str(e)))
             page.goto(base+"/console/#campaigns")
-            page.get_by_role("button",name="填入示例需求").click()
+            brief = "向近期未消费的会员说明如何查询积分余额，邀请他们了解会员服务"
+            page.get_by_role("button", name="新建活动").click()
+            page.get_by_label("活动目标").fill(brief)
+            page.get_by_label("已确认权益").fill("在会员中心查询积分余额；本次没有新增优惠")
             page.get_by_role("button",name="创建并生成候选").click()
             page.get_by_role("button",name="审批",exact=True).first.wait_for(timeout=30000)
+            assert page.get_by_role("heading", name=brief, exact=True).is_visible()
             page.screenshot(path=str(out/"plan.png"),full_page=True)
             page.get_by_role("button",name="审批",exact=True).first.click()
             page.get_by_role("button",name="全量交付").click()

@@ -13,8 +13,9 @@ async def test_retail_tools_and_ticket():
             root="/api/v1/support/sessions"
             sid=(await c.post(root+"?member_id=1")).json()["session_id"]
             path=root+"/"+sid
-            r=await c.post(path+"/messages",json={"content":"我的订单"})
+            r=await c.post(path+"/messages",json={"content":"帮我查订单"})
             assert "FP-0001-A" in r.json()["reply"] and "FP-0002" not in r.json()["reply"]
+            assert not r.json()["needs_confirmation"]
             r=await c.post(path+"/messages",json={"content":"我要退款 FP-0002-A"})
             assert not r.json()["needs_confirmation"]
             r=await c.post(path+"/messages",json={"content":"我要退款 FP-0001-A"})
