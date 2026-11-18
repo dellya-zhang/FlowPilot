@@ -76,3 +76,19 @@ jobs:
         if: failure()
       - run: docker compose down -v
         if: always()
+  quick-compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install httpx
+      - run: docker compose -p flowpilot-quick -f compose.quick.yml up --build -d --wait
+      - run: python scripts/check_compose.py
+      - run: curl -fsS http://127.0.0.1:8000/console/ | grep -q 'FlowPilot'
+      - run: docker compose -p flowpilot-quick -f compose.quick.yml logs --no-color
+        if: failure()
+      - run: docker compose -p flowpilot-quick -f compose.quick.yml down -v
+        if: always()

@@ -51,8 +51,9 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes: ["chdata:/var/lib/clickhouse"]
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --user flowpilot --password \"$CLICKHOUSE_PASSWORD\" --query 'SELECT 1'"]
+      test: ["CMD", "clickhouse-client", "--user", "flowpilot", "--password", "${CLICKHOUSE_PASSWORD:-flowpilot_local}", "--query", "SELECT 1"]
       interval: 5s
+      start_period: 30s
       retries: 30
   minio:
     # Maintained MinIO-compatible distribution; the original Docker Hub image is gone.
