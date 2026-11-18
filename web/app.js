@@ -5,8 +5,11 @@ const statuses={NEEDS_CLARIFICATION:'等待补充策略信息',CREATED:'待生�
 async function api(path,method='GET',body,extraHeaders={}){const r=await fetch('/api/v1'+path,{method,headers:{'Content-Type':'application/json',...extraHeaders,...(token?{'Authorization':'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok){const error=Error(typeof data.detail==='string'?data.detail:JSON.stringify(data));error.status=r.status;throw error}return data}
 function el(tag,text,parent){const n=document.createElement(tag);n.textContent=text;parent.append(n);return n}function button(text,parent,fn){const b=el('button',text,parent);b.className='secondary';b.onclick=()=>guard(fn,b);return b}
 async function guard(fn,b){$('notice').textContent='';if(b?.dataset.busy)return;if(b)b.dataset.busy='1';const wasDisabled=b?.disabled;if(b)b.disabled=true;try{await fn()}catch(e){$('notice').textContent=e.message||'连接失败，请检查本地服务'}finally{if(b){delete b.dataset.busy;b.disabled=wasDisabled||false;}if(currentCampaign)syncControls(currentCampaign)}}
-async function tasks(){const rows=await api('/campaigns');$('taskCount').textContent=rows.length;$('tasks').replaceChildren();if(!rows.length)el('p','还没有计划，创建你的第一项任务。',$('tasks')).className='empty-small';for(const c of rows){const b=button('', $('tasks'),()=>select(c.id));b.className='task'+(c.id===cid?' active':'');el('span',c.brief,b).className='task-title';el('small',statuses[c.status]||c.status,b)}}
+let campaignRows=[];
+async function tasks(){campaignRows=await api('/campaigns');renderTasks()}
+function renderTasks(){const rows=campaignRows.filter(c=>c.brief.toLowerCase().includes($('campaignSearch').value.trim().toLowerCase()));$('campaignSummary').textContent='待审批 '+campaignRows.filter(c=>c.status==='WAITING_APPROVAL').length+' · 已交付 '+campaignRows.filter(c=>c.status==='COMPLETED').length;$('taskCount').textContent=rows.length;$('tasks').replaceChildren();if(!rows.length)el('p','还没有计划，创建你的第一项任务。',$('tasks')).className='empty-small';for(const c of rows){const b=button('', $('tasks'),()=>select(c.id));b.className='task'+(c.id===cid?' active':'');el('span',c.brief,b).className='task-title';el('small',statuses[c.status]||c.status,b)}}
 
+$('campaignSearch').addEventListener('input',renderTasks);
 async function select(id){cid=id;exp=null;$('experimentView').replaceChildren();if(stream)stream.close();clearTimeout(streamRefreshTimer);await refresh();if(currentPlanning?.input)fillPlanningInput(currentPlanning.input);await renderExperiment();if(!token&&!window.FlowPilotDemo){stream=new EventSource('/api/v1/campaigns/'+id+'/stream');for(const name of ['candidate.ready','candidate.revised','candidate.failed','generation.finished','generation.failed','campaign.approved','pilot.exported','campaign.completed','operator.reviewed','execution.observed'])stream.addEventListener(name,scheduleStreamRefresh)}}
 async function refresh(){
   if(!cid)return;
@@ -37,23 +40,32 @@ async function renderExperiment(){
   const id=exp?.id||sessionStorage.getItem('exp-'+cid);if(!id)return;
   exp=await api('/experiments/'+id);const box=$('experimentView');box.replaceChildren();
   if(exp.binding?.comparison)el('p','比较变量：'+(exp.binding.comparison.axis_label||'历史方案')+'；方案版本已冻结。',box).className='hint';
+  if(exp.status==='RUNNING'){
+    const reason=labeled(box,'模拟提前结算原因（观察窗口到期后可留空）','textarea','',{maxLength:1000});
+    button('结算实验',box,async()=>{await api('/experiments/'+id+'/finalize','POST',{simulation_reason:reason.value.trim()||null});await renderExperiment()});
+  }
+  const result=exp.binding?.finalize_result;
+  if(result)el('p',result.recommended_candidate_id?'推荐：'+(xs.find(x=>x.id===result.recommended_candidate_id)?.title||result.recommended_candidate_id):'两组转化率相同，暂无推荐。',box).className='hint';
   for(const arm of exp.arms){
     const armBox=el('div','',box);armBox.className='experiment-arm';const matched=xs.find(x=>x.id===arm.candidate_id);
     el('h3',matched?.title||('方案 '+arm.candidate_id.slice(0,8)),armBox);
     el('p',arm.users.length+' 位试点用户 · '+arm.conversions+' 位模拟回流 · 比率 '+(100*arm.rate).toFixed(1)+'%',armBox);
     if(exp.status==='RUNNING'){
       button('记录一名模拟转化',armBox,async()=>{await api('/experiments/'+id+'/feedback','POST',{event_id:id+'-'+arm.users[0],candidate_id:arm.candidate_id,customer_id:arm.users[0]});await renderExperiment()});
+    }
+    if(exp.status==='FINALIZED'){
       const reason=labeled(armBox,'人工晋级依据（可选；未完成观察时说明原因）','textarea','',{maxLength:1000});
-      button('人工选为胜出方案',armBox,async()=>{await api('/experiments/'+id+'/promote?candidate_id='+arm.candidate_id,'POST',{decision_reason:reason.value||null});await renderExperiment();await refresh()});
+      button('人工选为胜出方案',armBox,async()=>{await api('/experiments/'+id+'/promote?candidate_id='+arm.candidate_id+'&require_finalized=true','POST',{decision_reason:reason.value||null});await renderExperiment();await refresh()});
     }
   }
   el('small','上方模拟回流按钮仅演示事件去重；下方复盘报告使用先送达、后转化的独立观察记录，不混用两种分母。',box);
   el('small',exp.note,box);
 }
-async function chat(){if(!sid){sid=(await api('/support/sessions','POST')).session_id;sessionStorage.setItem('sid',sid)}const result=await api('/support/sessions/'+sid+'/messages','POST',{content:$('message').value});await history();$('confirmBox').hidden=!result.needs_confirmation}
+async function chat(){if(!sid){sid=(await api('/support/sessions','POST')).session_id;sessionStorage.setItem('sid',sid)}const result=await api('/support/sessions/'+sid+'/messages','POST',{content:$('message').value});await history();$('confirmBox').hidden=!result.needs_confirmation;$('supportAudit').hidden=!result.decision;$('supportTrace').textContent=result.decision?JSON.stringify(result.decision,null,2):''}
+$('newSupport').onclick=()=>guard(async()=>{sid=(await api('/support/sessions','POST')).session_id;sessionStorage.setItem('sid',sid);$('confirmBox').hidden=true;$('supportAudit').hidden=true;await history()});
 async function history(){if(!sid)return;const rows=await api('/support/sessions/'+sid+'/messages');$('chatlog').replaceChildren();for(const r of rows)el('p',r.content,$('chatlog')).className=r.role;$('chatlog').scrollTop=$('chatlog').scrollHeight}
 $('create').onclick=()=>guard(async()=>{const c=await api('/campaigns','POST',{brief:$('brief').value,audience:$('audience').value,budget:Number($('budget').value),planning:readPlanningInput()});try{if(c.status==='CREATED')await api('/campaigns/'+c.id+'/generate','POST')}finally{await select(c.id)}},$('create'));
-for(const [id,fn] of Object.entries({pilot:async()=>{await api('/campaigns/'+cid+'/pilot','POST');await refresh()},finalize:async()=>{await api('/campaigns/'+cid+'/finalize','POST');await refresh()},experiment,send:chat,confirm:()=>confirm(true),cancel:()=>confirm(false)}))$(id).onclick=()=>guard(fn,$(id));
+for(const [id,fn] of Object.entries({pilot:async()=>{await api('/campaigns/'+cid+'/pilot','POST');await refresh()},finalize:async()=>{await api('/campaigns/'+cid+'/full','POST');await refresh()},experiment,send:chat,confirm:()=>confirm(true),cancel:()=>confirm(false)}))$(id).onclick=()=>guard(fn,$(id));
 async function confirm(ok){await api('/support/sessions/'+sid+'/confirm?approved='+ok,'POST');$('confirmBox').hidden=true;await history()}
 $('saveToken').onclick=()=>{token=$('token').value;guard(async()=>{await tasks();await loadModelStatus()})};
 setInterval(()=>{if(cid&&(token||window.FlowPilotDemo))guard(refresh)},2000);guard(async()=>{await tasks();await loadModelStatus();if(sid){try{await history()}catch(e){if(e.status===404){sid=null;sessionStorage.removeItem('sid')}else throw e}}});
@@ -61,7 +73,7 @@ setInterval(()=>{if(cid&&(token||window.FlowPilotDemo))guard(refresh)},2000);gua
 function syncControls(c){
   const isExperiment=!!sessionStorage.getItem('exp-'+c.id);
   $('pilot').disabled=isExperiment||!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status);
-  $('finalize').disabled=!['PILOT_EXPORTED','COMPLETED'].includes(c.status);
+  $('finalize').disabled=!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status);
   $('experiment').disabled=isExperiment||c.status!=='WAITING_APPROVAL'||selectedExperimentIds().length!==2;
   $('phaseBadge').textContent=statuses[c.status]||c.status;
   const phases={NEEDS_CLARIFICATION:-1,CREATED:-1,GENERATING:0,WAITING_APPROVAL:1,PILOT_READY:1,PILOT_EXPORTED:2,COMPLETED:3,FAILED:-1};

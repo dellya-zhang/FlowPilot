@@ -24,8 +24,8 @@
   window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
   showView(location.hash.slice(1));
   const scenarios = {
-    member: ['为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与', 'new', '单方案路线：生成后审批一套候选，再导出试点与全量名单。'],
-    experiment: ['向沉睡用户介绍积分查询与专属客服服务，比较权益说明与服务场景两种表达，不承诺优惠', 'dormant', 'A/B 路线：生成后不要普通审批，点击“创建双臂试点”，记录反馈后人工选出胜出方案。']
+    member: ['为新会员介绍积分查询与专属客服权益，不提供额外折扣，强调自愿参与', 'new', '单方案路线：生成后审批一套候选，直接导出全量名单。'],
+    experiment: ['向沉睡用户介绍积分查询与专属客服服务，比较权益说明与服务场景两种表达，不承诺优惠', 'dormant', 'A/B 路线：生成后不要普通审批，点击“创建双臂试点”，记录反馈、结算实验后人工选出胜出方案。']
   };
   document.querySelectorAll('[data-scenario]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.scenario === 'support') { location.hash = 'support'; byId('message').focus(); return; }
@@ -45,7 +45,7 @@
       CREATED: ['准备生成', '点击继续生成当前计划；创建成功但启动失败的任务也可在这里继续。'],
       GENERATING: ['正在生成候选', '候选会陆续出现。等待生成完成后，再选择审批或 A/B 路线。'],
       WAITING_APPROVAL: experiment ? ['下一步 · 观察双臂反馈并人工晋级', '在下方实验区记录模拟转化，再选择胜出方案。普通审批已关闭。'] : ['下一步 · 选择决策路线', '直接审批一套候选，或在下方创建 A/B 双臂试点。选择后不能切换路线。'],
-      PILOT_READY: ['下一步 · 导出试点名单', '方案已确认。先导出小范围试点，再进行全量排重交付。'],
+      PILOT_READY: ['下一步 · 全量名单交付', '普通方案审批后可以直接导出全量名单。旧版单方案试点仍可选用。'],
       PILOT_EXPORTED: ['下一步 · 全量排重交付', experiment ? '胜出方案已确认。全量交付将排除两臂全部试点用户。' : '试点名单已就绪。全量交付将排除已参加试点的用户。'],
       COMPLETED: ['交付完成 · 下载 CSV', '下方产物区可下载名单。可回看执行记录，或在左侧创建新任务。'],
       FAILED: ['生成失败', '展开执行记录查看原因，调整目标后创建新任务。']

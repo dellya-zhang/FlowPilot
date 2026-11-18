@@ -64,11 +64,12 @@
         if(!(db.candidates[cid]||[]).some(x=>x.id===data.candidate_id))error(422,'候选不属于当前任务');
         c.selected_candidate_id=data.candidate_id;c.status='PILOT_READY';event(cid,'campaign.approved');save();return response(c);
       }
-      if(['pilot','finalize'].includes(action)&&method==='POST') {
+      if(['pilot','finalize','full'].includes(action)&&method==='POST') {
         const kind=action==='pilot'?'pilot':'full';
         if(action==='pilot'&&exp)error(409,'实验客群已定义试点，请晋级后全量交付');
         if(action==='pilot'&&!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status))error(409,'请先审批方案');
         if(action==='finalize'&&!['PILOT_EXPORTED','COMPLETED'].includes(c.status))error(409,'请先完成试点或晋级');
+        if(action==='full'&&(!['PILOT_READY','PILOT_EXPORTED','COMPLETED'].includes(c.status)||exp&&exp.status!=='PROMOTED'))error(409,'请先审批或晋级');
         let a=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind===kind);
         if(!a) {
           let rows=pool(c),pilot=Object.values(db.artifacts).find(a=>a.campaign_id===cid&&a.kind==='pilot');
@@ -103,6 +104,17 @@
       if(!action&&method==='GET')return response({...e,arms:Object.entries(e.arms).map(([candidate_id,users])=>{
         const conversions=Object.values(e.feedback).filter(f=>f.candidate_id===candidate_id).length;
         return {candidate_id,users,conversions,rate:conversions/users.length};}),note:'模拟回流和描述性转化率，不代表真实业务效果或统计显著性。'});
+      if(action==='finalize'&&method==='POST'){
+        if(e.binding?.finalize_result)return response(e.binding.finalize_result);
+        if(e.status!=='RUNNING'||!e.binding)error(409,'实验无法结算');
+        const days=Math.max(...Object.values(e.binding.snapshots).map(s=>s.plan_data?.strategy?.ab_experiment?.window_days||7));
+        const early=Date.now()<Date.parse(e.binding.bound_at)+days*86400000;
+        if(early&&(!data.simulation_reason||data.simulation_reason.trim().length<3))error(409,'提前结算必须说明模拟原因');
+        const arms=Object.entries(e.arms).map(([candidate_id,users])=>{const converted=Object.values(e.feedback).filter(f=>f.candidate_id===candidate_id).length;return {candidate_id,assigned:users.length,converted,rate:converted/users.length}});
+        const ranked=[...arms].sort((a,b)=>b.rate-a.rate);
+        const result={finalized_at:new Date().toISOString(),window_days:days,early_simulation:early,simulation_reason:data.simulation_reason,arms,recommended_candidate_id:ranked[0].rate>ranked[1].rate?ranked[0].candidate_id:null};
+        e.binding.finalize_result=result;e.status='FINALIZED';save();return response(result);
+      }
       if(action==='feedback'&&method==='POST') {
         if(e.status!=='RUNNING')error(409,'实验已结束');
         if(!e.arms[data.candidate_id]?.includes(data.customer_id))error(422,'用户不属于该实验臂');

@@ -186,6 +186,19 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
         customers.sort(key=lambda c: c.id)
     decision=await db.get(DecisionBinding,campaign.id)
     binding=decision.data if decision else None
+    # Recheck the actual frozen text and actual audience cost before publication.
+    from app.services.rules import check_marketing
+    if binding:
+        snapshot = binding["snapshot"]
+        plan = snapshot.get("plan_data") or {}
+        issues = check_marketing(snapshot["title"] + "\n" + snapshot["message"], campaign.budget)
+        estimate = plan.get("cost_estimate") or {}
+        strategy = plan.get("strategy") or {}
+        unit = estimate.get("unit_cost_cny") or 0
+        if unit * strategy.get("contacts_per_user", 1) * len(customers) > campaign.budget:
+            issues.append("delivery_budget_exceeded")
+        if issues:
+            raise HTTPException(422, {"message": "Delivery blocked by compliance", "issues": issues})
     blob = generate_csv(customers,binding)
     digest = hashlib.sha256(blob).hexdigest()
     key = f"campaigns/{campaign.id}/{kind}-{digest[:12]}.csv"

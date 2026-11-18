@@ -107,10 +107,49 @@ async def report(eid: str, db=Depends(session_dep)):
             "note": "描述性转化率，不代表统计显著性；使用模拟回流，必须人工选择胜出方案。"}
 
 
-@router.post("/{eid}/promote")
-async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Body(default=None), db=Depends(session_dep)):
+class FinalizeInput(InputModel):
+    simulation_reason: str | None = Field(default=None, min_length=3, max_length=1000)
+
+
+@router.post("/{eid}/finalize")
+async def finalize_experiment(eid: str, data: FinalizeInput, db=Depends(session_dep)):
     exp = await locked(db, eid)
+    binding = await db.get(ExperimentBinding, eid)
+    if not binding:
+        raise HTTPException(409, "Experiment has no frozen version binding")
+    if exp.status in ("FINALIZED", "PROMOTED") and binding.data.get("finalize_result"):
+        return binding.data["finalize_result"]
     if exp.status != "RUNNING":
+        raise HTTPException(409, "Experiment is not running")
+    from datetime import timedelta
+    bound_at = datetime.fromisoformat(binding.data["bound_at"])
+    snapshots = binding.data["snapshots"]
+    days = max(((s.get("plan_data") or {}).get("strategy") or {}).get("ab_experiment", {}).get("window_days", 7) for s in snapshots.values())
+    now = datetime.now(timezone.utc)
+    early = now < bound_at + timedelta(days=days)
+    if early and not data.simulation_reason:
+        raise HTTPException(409, "Observation window is not over; explicit simulation reason required")
+    counts = dict((await db.execute(select(Conversion.arm, func.count()).where(
+        Conversion.experiment_id == eid).group_by(Conversion.arm))).all())
+    arms = [{"candidate_id": cid, "assigned": len(users), "converted": counts.get(cid, 0),
+             "rate": counts.get(cid, 0) / len(users)} for cid, users in exp.arms.items()]
+    ranked = sorted(arms, key=lambda a: a["rate"], reverse=True)
+    recommended = ranked[0]["candidate_id"] if ranked[0]["rate"] > ranked[1]["rate"] else None
+    result = {"finalized_at": now.isoformat(), "window_days": days, "early_simulation": early,
+              "simulation_reason": data.simulation_reason, "arms": arms, "recommended_candidate_id": recommended,
+              "note": "Descriptive conversion per assigned synthetic user; no significance or causal claim."}
+    binding.data = {**binding.data, "finalize_result": result}
+    exp.status = "FINALIZED"
+    await emit(db, exp.campaign_id, "experiment.finalized", {"experiment_id": eid, "early_simulation": early})
+    return result
+
+
+@router.post("/{eid}/promote")
+async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Body(default=None), require_finalized: bool = False, db=Depends(session_dep)):
+    exp = await locked(db, eid)
+    if require_finalized and exp.status == "RUNNING":
+        raise HTTPException(409, "Finalize the experiment before promotion")
+    if exp.status not in ("RUNNING", "FINALIZED"):
         if exp.winner == candidate_id:
             return {"winner": exp.winner, "status": exp.status}
         raise HTTPException(409, "Experiment already promoted")

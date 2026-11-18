@@ -202,6 +202,20 @@ async def pilot(campaign_id: str, db: AsyncSession = Depends(session_dep)):
     return artifact
 
 
+@router.post("/campaigns/{campaign_id}/full", response_model=ArtifactView)
+async def full_delivery(campaign_id: str, db: AsyncSession = Depends(session_dep)):
+    """Ordinary approved plan -> full; experiment winner -> remaining audience."""
+    await db.execute(update(Campaign).where(Campaign.id == campaign_id).values(updated_at=Campaign.updated_at))
+    campaign = await require_campaign(db, campaign_id)
+    experiment = await db.scalar(select(Experiment).where(Experiment.campaign_id == campaign_id))
+    if campaign.status not in ("PILOT_READY", "PILOT_EXPORTED", "COMPLETED") or (experiment and experiment.status != "PROMOTED"):
+        raise HTTPException(409, "Approve a plan or promote an experiment winner first")
+    artifact = await export_audience(db, campaign, "full")
+    campaign.status = "COMPLETED"
+    await emit(db, campaign_id, "campaign.completed", {"artifact_id": artifact.id, "rows": artifact.row_count})
+    return artifact
+
+
 @router.post("/campaigns/{campaign_id}/finalize", response_model=ArtifactView)
 async def finalize(campaign_id: str, db: AsyncSession = Depends(session_dep)):
     await db.execute(update(Campaign).where(Campaign.id == campaign_id).values(updated_at=Campaign.updated_at))

@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'">
   <meta name="description" content="FlowPilot 智能运营工作台：方案生成、人工决策、实验验证与交付。本地后端可安全接入模型。">
   <title>FlowPilot · 会员运营与客服</title>
-  <link rel="stylesheet" href="./styles.css?v=business-20261118-1">
+  <link rel="stylesheet" href="./styles.css?v=business-20261118-2">
 </head>
 <body>
 <header class="topbar">
@@ -46,7 +46,7 @@
       <label class="check-label"><input id="enableHoldout" type="checkbox"> 保留10%不触达对照人群</label><p class="fine-print">名单执行地区、同意状态及对照组排除；渠道、节奏和观察窗口是交接建议，不执行真实投放。</p></details>
 
     </section>
-    <section class="panel history-panel"><div class="section-heading spread"><h2>最近计划</h2><span id="taskCount" class="count-pill">0</span></div><div id="tasks"><p class="empty-small">还没有计划，创建你的第一项任务。</p></div></section>
+    <section class="panel history-panel"><div class="section-heading spread"><h2>最近计划</h2><span id="taskCount" class="count-pill">0</span></div><label for="campaignSearch">筛选活动</label><input id="campaignSearch" type="search" placeholder="活动目标"><div id="campaignSummary" class="campaign-summary" aria-live="polite"></div><div id="tasks"><p class="empty-small">还没有计划，创建你的第一项任务。</p></div></section>
     <div class="side-note"><span>✧</span><p>方案须经人工审批后才能导出名单。<br>所有演示用户均为合成数据。</p></div>
   </aside>
   <article class="main-column">
@@ -54,7 +54,7 @@
       <div class="stepper" aria-label="任务进度"><span data-step="0"><i>1</i>生成方案</span><b></b><span data-step="1"><i>2</i>人工决策</span><b></b><span data-step="2"><i>3</i>试点验证</span><b></b><span data-step="3"><i>4</i>全量交付</span></div>
       <div class="next-action" aria-live="polite"><strong id="nextTitle">第一步 · 描述活动目标</strong><p id="nextDetail">选择上方场景或填写左侧目标，生成三套候选后再决定交付路线。</p></div><section id="planningQuestions" class="route-choice" hidden aria-live="polite"></section><div class="planning-actions"><button id="clarifyPlan" class="secondary" hidden>保存补充信息</button><button id="resumePlan" class="primary" hidden>继续生成当前计划</button></div><p class="state" id="status">选择历史任务或创建新任务</p>
       <div id="candidates"><div class="empty-state"><span class="empty-art" aria-hidden="true">✧</span><h3>暂无候选方案</h3><p>在左侧描述活动目标。生成后，你可以比较候选、确认方案，<br class="desktop-only">或通过 A/B 试点验证不同方向。</p><div class="empty-tags"><span>候选方案</span><span>审批</span><span>名单导出</span></div></div></div>
-      <div class="route-choice" id="routeChoice" hidden><strong>选择一条决策路线</strong><p>单方案：在候选卡片中审批一套，再导出试点。A/B：先创建双臂试点，观察反馈后人工晋级。两条路线互斥。</p></div><div class="delivery-actions"><div><h3>名单交付</h3><p class="hint">确认方案后，先小范围试点，再进行排重交付。</p></div><div><button id="pilot" class="secondary" disabled>导出试点名单</button><button id="finalize" class="primary" disabled>全量排重交付 <span>↓</span></button></div></div><div id="artifacts" class="artifact-list"></div>
+      <div class="route-choice" id="routeChoice" hidden><strong>选择一条决策路线</strong><p>单方案：在候选卡片中审批一套，再导出试点。A/B：先创建双臂试点，观察反馈后人工晋级。两条路线互斥。</p></div><div class="delivery-actions"><div><h3>名单交付</h3><p class="hint">确认方案后，先小范围试点，再进行排重交付。</p></div><div><button id="pilot" class="secondary" disabled>导出试点名单（可选）</button><button id="finalize" class="primary" disabled>全量名单交付 <span>↓</span></button></div></div><div id="artifacts" class="artifact-list"></div>
     </section>
     <section class="panel experiment-panel"><div class="section-heading spread"><div><h2>A/B 试点实验</h2></div><span class="subtle-tag">双臂互斥</span></div><p class="hint">选择两套候选进行互斥分组，记录模拟反馈后人工选定方案。</p><button id="experiment" class="secondary" disabled>创建双臂试点 <span>＋</span></button><div id="experimentView"></div><div class="experiment-note">试点数据用于演示，不作统计显著性或转化效果承诺。</div></section>
     <section class="panel evaluation-panel"><div class="section-heading spread"><div><h2>方案复盘与执行观察</h2></div><button id="downloadEvaluation" class="secondary" disabled>下载复盘 JSON</button></div><p class="hint">审批和导出不是送达证据。先记录送达，再记录同一来源的转化；结果仅描述已记录样本。</p><div id="evaluationSummary"><p class="hint">选择计划后查看。</p></div>
@@ -65,18 +65,18 @@
     <section class="panel model-panel"><div class="section-heading spread"><h2>模型连接</h2><span id="modelState" class="subtle-tag">检查中</span></div><div class="model-identity"><span class="model-icon">M</span><div><strong id="modelName">本地后端</strong><small id="modelMode">正在读取连接状态</small></div><span class="connection-dot"></span></div><p id="modelDescription" class="hint">密钥仅由本机后端读取，页面不接收模型 API Key。</p><div id="modelBudget" class="budget-strip" hidden></div><div class="model-actions"><button id="testModel" class="secondary" disabled>测试本机连接</button><button id="refreshModel" class="quiet">刷新</button></div><pre id="modelResult" class="model-result" hidden aria-live="polite"></pre>
       <details class="connection-guide"><summary>如何在本地接入？ <span>↗</span></summary><ol><li>克隆项目，在本机安装依赖。</li><li>在 <code>.env</code> 设置模型与密钥，或接入本机推理服务。</li><li>绑定 <code>127.0.0.1</code> 启动后，从本地页面测试。</li></ol><a href="https://github.com/dellya-zhang/FlowPilot/blob/main/docs/本地模型接入.md" target="_blank" rel="noopener noreferrer">查看安全接入指南 ↗</a></details><p class="fine-print">云模型测试可能计费；“本地中转”不等于“本地推理”。</p>
     </section>
-    <section class="panel support-panel"><div class="view-intro"><h2>客服会话</h2><p>咨询不会发起审核；只有明确提出退款申请，才进入确认流程。确认结果为演示审核记录。</p></div><div class="section-heading spread"><h2>客服协作</h2><span class="subtle-tag">规则演示</span></div><p class="hint">政策咨询、订单路由与敏感操作确认。</p><div id="chatlog" aria-live="polite"><div class="chat-welcome"><span>✧</span><p>你好，我可以介绍退款政策，<br>或协助发起审核申请。</p></div></div><div class="quick-prompts"><button class="chip" data-prompt="退款政策是什么">退款政策</button><button class="chip" data-prompt="我的订单在哪里">订单查询</button><button class="chip" data-prompt="我要退款">申请审核</button></div><label class="sr-only" for="message">咨询内容</label><div class="chat-input"><input id="message" value="退款政策是什么" maxlength="2000" placeholder="输入你的问题…"><button id="send" class="primary" aria-label="发送消息">发送</button></div><div id="confirmBox" hidden><div class="confirm-note">此操作需要你的确认</div><button id="confirm" class="primary">确认提交审核</button><button class="secondary" id="cancel">取消申请</button></div><p class="fine-print">不连接真实订单，也不执行退款。</p></section>
+    <section class="panel support-panel"><div class="view-intro"><h2>客服会话</h2><p>咨询不会发起审核；只有明确提出退款申请，才进入确认流程。确认结果为演示审核记录。</p></div><div class="section-heading spread"><h2>在线客服</h2><button id="newSupport" class="secondary">新会话</button></div><p class="hint">政策咨询、订单路由与敏感操作确认。</p><div id="chatlog" aria-live="polite"><div class="chat-welcome"><span>✧</span><p>你好，我可以介绍退款政策，<br>或协助发起审核申请。</p></div></div><div class="quick-prompts"><button class="chip" data-prompt="退款政策是什么">退款政策</button><button class="chip" data-prompt="我的订单在哪里">订单查询</button><button class="chip" data-prompt="我要退款">申请审核</button></div><label class="sr-only" for="message">咨询内容</label><div class="chat-input"><input id="message" value="退款政策是什么" maxlength="2000" placeholder="输入你的问题…"><button id="send" class="primary" aria-label="发送消息">发送</button></div><details id="supportAudit" hidden><summary>本轮处理记录</summary><pre id="supportTrace"></pre></details><div id="confirmBox" hidden><div class="confirm-note">此操作需要你的确认</div><button id="confirm" class="primary">确认提交审核</button><button class="secondary" id="cancel">取消申请</button></div><p class="fine-print">不连接真实订单，也不执行退款。</p></section>
     <section class="panel knowledge-panel"><div class="view-intro"><h2>政策检索</h2><p>输入问题 → 检索政策 → 阅读回答与来源。完整检索需要本地后端。</p></div><div class="section-heading spread"><h2>政策知识库</h2><span class="subtle-tag">引用可追溯</span></div><p class="hint">查询本地演示政策，回答附带原文和来源。此入口不执行退款等操作。</p><label for="knowledgeQuestion">政策问题</label><input id="knowledgeQuestion" value="退款政策是什么" maxlength="500" placeholder="如：会员权益有哪些？"><p><label><input type="checkbox" id="knowledgeModel"> 使用已配置模型筛选依据（可能计费）</label></p><button id="knowledgeAsk" class="secondary">检索政策依据</button><div id="knowledgeResult" aria-live="polite"><p class="fine-print">默认免费摘录；模型模式会将问题与检索片段发给所配置的模型。</p></div></section>
     <section class="privacy-note"><span aria-hidden="true">◇</span><div><strong>访问与数据设置</strong><p>不填真实客户资料；模型密钥保存在本机。在线预览不会访问你的本地服务。</p><details><summary>工作区访问令牌</summary><label for="token">本地后台的 ACCESS_TOKEN</label><input id="token" type="password" autocomplete="off" placeholder="可选；请勿填写模型 Key"><button id="saveToken" class="secondary">用于本次页面会话</button></details></div></section>
   </aside>
 </main>
 <footer><span><strong>FlowPilot</strong> · 会员运营与客服工作台</span><a href="https://github.com/dellya-zhang/FlowPilot" target="_blank" rel="noopener noreferrer">开源项目 ↗</a></footer>
-<script src="./planning.js?v=business-20261118-1"></script>
-<script src="./operations.js?v=business-20261118-1"></script>
-<script src="./operations-demo.js?v=business-20261118-1"></script>
-<script src="./demo.js?v=business-20261118-1"></script>
-<script src="./app.js?v=business-20261118-1"></script>
-<script src="./showcase.js?v=business-20261118-1"></script>
-<script src="./workspace.js?v=business-20261118-1"></script>
+<script src="./planning.js?v=business-20261118-2"></script>
+<script src="./operations.js?v=business-20261118-2"></script>
+<script src="./operations-demo.js?v=business-20261118-2"></script>
+<script src="./demo.js?v=business-20261118-2"></script>
+<script src="./app.js?v=business-20261118-2"></script>
+<script src="./showcase.js?v=business-20261118-2"></script>
+<script src="./workspace.js?v=business-20261118-2"></script>
 </body>
 </html>

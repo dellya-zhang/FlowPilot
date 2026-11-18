@@ -103,3 +103,4 @@ class SupportDecision(BaseModel):
     session_status: str
 
     facts: list[dict[str, str]] = Field(default_factory=list)
+    decision: dict | None = None

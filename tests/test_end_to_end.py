@@ -235,3 +235,13 @@ async def test_support_non_actionable_refund(content):
             assert response.status_code == 200
             assert response.json()["needs_confirmation"] is False
             assert (await client.post(f"/api/v1/support/sessions/{sid}/confirm?approved=true")).status_code == 409
+
+
+def test_support_policy_routing():
+    from app.services.support_policy import screen, decide
+    assert screen("好的")["branch"] == "query"
+    assert screen("好的", {"type": "refund"})["confirmation"] == "confirm"
+    assert screen("等一下", {"type": "refund"})["confirmation"] == "unclear"
+    assert decide(screen("我要退款"))["action"] == "confirm_with_user"
+    assert decide(screen("我要投诉商家"))["action"] == "handoff"
+    assert decide(screen("我要执行其他操作"))["fallback"] is True
