@@ -37,7 +37,9 @@ async def send_message(db, session_id: str, content: str) -> SupportDecision:
         intent, reply = "confirmation", "存在待确认的退款审核申请，请先确认或取消，避免覆盖待执行操作。"
     elif text in ("我想退", "帮我处理", "这个怎么办"):
         intent, reply = "clarify", "请说明要处理的对象：订单退款、会员咨询，还是物流查询？"
-    elif any(w in text for w in ("退款", "refund", "退钱")) and not any(w in text for w in ("政策", "规则", "条件", "是什么", "policy")):
+    elif any(w in text for w in ("不退款", "不要退款", "不想退款", "不用退款", "不需要退款", "不申请退款", "do not refund", "don't refund", "no refund")):
+        intent, reply = "clarify", "未提交退款审核申请。如需查询政策或订单，请说明具体问题。"
+    elif any(w in text for w in ("退款", "refund", "退钱")) and any(w in text for w in ("我要", "我想", "申请", "帮我", "给我", "please refund", "want a refund", "request a refund")) and not any(w in text for w in ("政策", "规则", "条件", "是什么", "怎么", "如何", "能否", "可以吗", "policy", "how", "can i")):
         intent = "refund"
         session.status = "WAITING_CONFIRMATION"
         session.pending_action = {"type": "refund_review", "requested_text": content[:200]}

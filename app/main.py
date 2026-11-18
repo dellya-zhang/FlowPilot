@@ -95,8 +95,8 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="FlowPilot · 智能运营与 Agent 工作台", version="0.1.0", lifespan=lifespan,
-              description="Marketing workflow + support rules demo; mock LLM by default, synthetic customers only.")
+app = FastAPI(title="FlowPilot API", version="0.1.0", lifespan=lifespan,
+              description="Campaign planning, candidate approval, audience export, experiments and support confirmation. Uses synthetic customers; no live delivery or refunds.")
 app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 from app.api.experiments import router as experiment_router

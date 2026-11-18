@@ -2,8 +2,8 @@
 (() => {
   const host = document.getElementById('projectOverview');
   host.innerHTML = `
-    <div class="overview-lead"><div><span class="eyebrow">PROJECT AT A GLANCE</span><h2>把一句运营需求，变成可审核、可交付的执行方案。</h2><p>FlowPilot 面向营销运营与客服：前者把活动目标推进到名单交付，后者把政策咨询与需要确认的操作分开处理。</p><div class="overview-actions"><a class="primary overview-link" href="#marketing">进入工作台，亲自运行 ↗</a><a class="secondary overview-link" href="https://github.com/dellya-zhang/FlowPilot#核心实现与源码" target="_blank" rel="noopener noreferrer">查看后端实现</a></div></div><aside><strong>这个项目交付了什么？</strong><p>一个前后端工作台<br>一套可恢复的 Agent 编排后端<br>带版本的名单与可追溯的执行记录</p><span class="subtle-tag">个人独立演示工程 · 合成用户</span></aside></div>
-    <div class="case-heading"><div><span class="eyebrow">FOLLOW ONE COMPLETE CASE</span><h2>不用先填表，先看一次完整交付。</h2></div><div class="case-tabs" role="group" aria-label="案例选择"><button id="caseMarketing" class="primary" aria-pressed="true">营销案例</button><button id="caseSupport" class="secondary" aria-pressed="false">客服案例</button></div></div>
+    <div class="overview-lead"><div><h2>会员营销与客服流程</h2><p>FlowPilot 面向营销运营与客服：前者把活动目标推进到名单交付，后者把政策咨询与需要确认的操作分开处理。</p><div class="overview-actions"><a class="primary overview-link" href="#marketing">进入工作台，亲自运行 ↗</a><a class="secondary overview-link" href="https://github.com/dellya-zhang/FlowPilot#核心实现与源码" target="_blank" rel="noopener noreferrer">查看后端实现</a></div></div><aside><strong>这个项目交付了什么？</strong><p>一个前后端工作台<br>一套可恢复的 Agent 编排后端<br>带版本的名单与可追溯的执行记录</p><span class="subtle-tag">个人独立演示工程 · 合成用户</span></aside></div>
+    <div class="case-heading"><div><h2>业务案例</h2></div><div class="case-tabs" role="group" aria-label="案例选择"><button id="caseMarketing" class="primary" aria-pressed="true">营销案例</button><button id="caseSupport" class="secondary" aria-pressed="false">客服案例</button></div></div>
     <p class="case-source">以下是实际运行浏览器模板后保存的案例快照，不调用模型，也不是业务成效数据。切换步骤只阅读快照，不执行审批。</p>
     <div id="caseSteps" class="case-steps" role="group" aria-label="案例步骤"></div>
     <section class="case-stage" aria-live="polite"><div id="caseNarrative"></div><div id="caseEvidence" class="case-evidence"></div></section>
@@ -42,7 +42,7 @@
     if (mode === 'marketing') {
       const selected = data.candidates.find(x=>x.id===c.selected_candidate_id);
       if (stage===0) {
-        node('h2','运营只先说明：向谁介绍什么服务？',narrative);
+        node('h2','活动需求',narrative);
         paragraph('场景：新会员还不了解已有权益。运营希望得到几套可比较的表达，再小范围试点，最后交付剩余名单。');
         card('原始需求', c.brief);
         card('明确约束', `人群：新用户；预算：¥${c.budget}；已确认权益：${c.planning.known_benefits}。不允许补造折扣。`);
@@ -55,7 +55,7 @@
           node('small', '来源：浏览器模板；完整后端可切换模型生成。', box);
         }
       } else if (stage===2) {
-        node('h2','方案生成后，停在人工决策这一步。',narrative);
+        node('h2','审批与版本绑定',narrative);
         paragraph('本案例选择单方案路线：人工选定第一套候选，并将审批绑定到当时的方案版本；之后先交付试点，再交付剩余名单。');
         card('采用的方案',selected.title+'：'+selected.message);
         card('版本绑定',`交付绑定 v${data.artifacts[0].binding.revision}，CSV包含 candidate_id、plan_revision、channel 和 message 等字段。`);
@@ -63,7 +63,7 @@
       } else {
         const pilot=data.artifacts.find(a=>a.kind==='pilot'),full=data.artifacts.find(a=>a.kind==='full');
         const overlap=pilot.users.filter(x=>full.users.includes(x)).length;
-        node('h2','最终交付能下载，也能检查是否重复。',narrative);
+        node('h2','名单交付结果',narrative);
         paragraph('下面的数量与文件来自这次案例运行。名单导出不等于已触达，更不等于转化提升；真实渠道尚未接入。');
         let box=card(`${pilot.row_count} 人 / 试点名单`,'先给小范围合成用户，保留所采用的文案与版本。');download('下载本次 pilot.csv ↓','./examples/pilot.csv',box);
         box=card(`${full.row_count} 人 / 剩余全量`,'排除已进入试点的用户，交付剩余名单。');download('下载本次 full.csv ↓','./examples/full.csv',box);
