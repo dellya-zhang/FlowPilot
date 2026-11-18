@@ -183,7 +183,7 @@ docs/          设计及验证记录
 
 本地 Docker：复制 .env.example 为 .env，设置 AI_PROVIDER=deepseek 和 DEEPSEEK_API_KEY（不提交密钥），执行 `docker compose up --build`，访问 <http://127.0.0.1:8000/console/>。不配 Key 可保留 AI_PROVIDER=mock。
 
-非 Docker：先启动 FastAPI，再在 client/ 执行 npm install、npm run check、npm run build；访问同一个 /console/。开发模式 npm run dev 对应 http://127.0.0.1:5173/console/，API 代理到本机 8000。项目当前固定直接依赖版本，尚无经过验证的 npm lockfile；CI 安装并构建。
+非 Docker：先启动 FastAPI，再在 client/ 执行 npm ci、npm run check、npm run build；访问同一个 /console/。开发模式 npm run dev 对应 http://127.0.0.1:5173/console/，API 代理到本机 8000。本地、Docker 和 CI 均通过 npm ci 使用提交的依赖锁文件。
 
 新版提供活动列表、创建/澄清、候选修订与审批、A/B 试点/反馈/结算/晋级、全量交付、合成会员与客服只读工具、工单和审计。原有复盘批量录入等高级功能仍可在旧版工作台完成。
 
