@@ -41,6 +41,8 @@ class PlanningInput(InputModel):
     known_benefits: str = Field(default="", max_length=1000)
     channel: Literal["manual", "sms", "in_app"] = "manual"
     region: Literal["all", "north", "south", "east", "west"] = "all"
+    min_days_since_purchase: int = Field(default=0,ge=0,le=3650)
+    min_lifetime_spend_cny: int = Field(default=0,ge=0,le=1000000)
     unit_cost_cny: float = Field(default=0, ge=0, le=1000, allow_inf_nan=False)
     pilot_ratio: float = Field(default=0.1, ge=0.05, le=0.3, allow_inf_nan=False)
     window_days: int = Field(default=7, ge=3, le=14)

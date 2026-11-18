@@ -252,11 +252,16 @@ async def download(artifact_id: str, db: AsyncSession = Depends(session_dep)):
 
 
 @router.post("/support/sessions", status_code=201)
-async def new_support_session(db: AsyncSession = Depends(session_dep)):
+async def new_support_session(member_id: int | None = Query(None,ge=1,le=500), db: AsyncSession = Depends(session_dep)):
+    from app.models.entities import RetailSession, RetailProfile
+    if member_id is not None and not await db.get(RetailProfile,member_id):
+        raise HTTPException(404,"Synthetic member not found")
     session = SupportSession()
     db.add(session)
+    await db.flush()
+    if member_id is not None:db.add(RetailSession(session_id=session.id,customer_id=member_id))
     await db.commit()
-    return {"session_id": session.id, "status": session.status}
+    return {"session_id": session.id, "status": session.status,"member_id":member_id}
 
 
 @router.post("/support/sessions/{session_id}/messages", response_model=SupportDecision)
@@ -271,7 +276,7 @@ async def support_message(session_id: str, data: SupportMessageInput, request: R
     except TimeoutError:
         raise HTTPException(429, "Model capacity reached")
     try:
-        return await asyncio.wait_for(send_message(db, session_id, data.content, True), timeout=12)
+        return await asyncio.wait_for(send_message(db, session_id, data.content, True), timeout=get_settings().support_timeout_seconds)
     except TimeoutError:
         await db.rollback()
         raise HTTPException(504, "Support model timed out; retry without model")

@@ -172,3 +172,7 @@ docs/          设计及验证记录
 - [运行时设计与验收](docs/agent-runtime.md)。
 
 活动管理入口 `/#campaigns`，可按目标和状态筛选并进入任务。Chromium 端到端测试：`python -m playwright install chromium && python scripts/browser_runtime.py`（先安装 playwright）。CI 会上传真实浏览器截图供核验。营销预览合规最多重试两次，已审批内容不会静默改写。
+
+### 零售数据与真实工具调用
+
+合成会员有等级、积分、最近消费间隔、累计消费金额和两笔订单；营销可按消费间隔及金额圈选。客服在显式选择合成会员后（`POST /api/v1/support/sessions?member_id=1`），使用真实 SQL 查询；退款必须指明本会员订单并确认，生成本地待审核工单。DeepSeek 模式的查询通过原生 Chat Completions tools / tool_calls 协议调用只读工具，最多三轮；模型错误显式报告，不以模板冒充成功。配置 `AI_PROVIDER=deepseek` 和本机 `DEEPSEEK_API_KEY` 后才会访问模型。合成身份不等于真实身份认证。

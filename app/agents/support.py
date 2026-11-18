@@ -40,6 +40,10 @@ class ConversationState(TypedDict, total=False):
     confirmation: str | None
     trace: list[dict]
     tools: list[str]
+    db: object
+    customer_id: int | None
+    history: list[dict]
+    mode: str
 
 def step(state, name, **extra):
     return [*state.get("trace", []), {"node": name, **extra}]
@@ -61,6 +65,10 @@ def build_graph(pack=MEMBERSHIP):
         return {"reply": s["screening"]["ambiguity"], "trace": step(s, "clarify")}
 
     async def retrieve(s):
+        if s.get("customer_id") is not None:
+            from app.agents.retail_tools import run_retail_query
+            result=await run_retail_query(s["db"],s["customer_id"],s["content"],s.get("use_model",False),s.get("history"))
+            return {**result,"trace":step(s,"retrieve")+result["trace"]}
         text = s["content"].strip().lower()
         facts = [{"source": source, "fact": fact} for keyword, source, fact in pack.faq if keyword in text]
         citations, tools, trace = [], [], step(s, "retrieve")
@@ -106,8 +114,21 @@ def build_graph(pack=MEMBERSHIP):
     def route_action(s):
         return {"handoff":"handoff","reject":"reject"}.get(s["rule"]["action"], "confirm_with_user")
 
-    def confirm_with_user(s):
+    async def confirm_with_user(s):
         intent = s["intent"]
+        if intent=="refund" and s.get("customer_id") is not None:
+            from app.agents.retail_tools import order_id
+            from app.services.retail import run_tool
+            oid=order_id(s["content"])
+            if not oid:
+                return {"reply":"请提供要申请退款的订单号，可先查询订单。","trace":step(s,"refund_order_required")}
+            result=await run_tool(s["db"],s["customer_id"],"check_refund_eligibility",{"order_id":oid})
+            if not result.get("eligible_for_review"):
+                return {"reply":"当前会员没有可申请该订单退款审核的记录。","trace":step(s,"refund_ineligible")}
+            return {"pending_next":{"type":"refund","order_id":oid,"decision":s["rule"]},
+                    "reply":f"是否确认提交 {oid} 的退款人工审核申请？不会执行真实退款。",
+                    "trace":step(s,"confirm_with_user",order_id=oid)}
+
         return {"pending_next":{"type":intent,"requested_text":s["content"][:200],"decision":s["rule"]},
                 "reply":"是否确认提交退款人工审核申请？本演示不执行真实退款。" if intent=="refund" else "是否确认记录该诉求？本演示不会执行外部操作。",
                 "trace":step(s,"confirm_with_user")}

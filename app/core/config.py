@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-flash"
     llm_max_tokens: int = 600
     llm_timeout_seconds: float = 30
+    support_timeout_seconds: float = Field(default=90,gt=0,le=180)
     llm_max_calls: int = 18
     llm_budget_cny: float = 10
     llm_audit_path: str = "./artifacts/llm-usage.jsonl"

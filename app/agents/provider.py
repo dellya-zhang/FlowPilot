@@ -42,6 +42,15 @@ async def draft(brief: str, audience: str, variant: int, *, budget: int | None =
 
 
 async def complete_json(messages: list[dict], schema: type[BaseModel]) -> dict:
+    return await _complete(messages, schema=schema)
+
+
+async def complete_tools(messages: list[dict], tools: list[dict]) -> dict:
+    """Native Chat Completions tool protocol; execution remains in the caller."""
+    return await _complete(messages, tools=tools)
+
+
+async def _complete(messages, schema=None, tools=None):
     cfg = get_settings()
     if cfg.ai_provider == "deepseek":
         key, base, model = cfg.deepseek_api_key, cfg.deepseek_base_url, cfg.deepseek_model
@@ -61,7 +70,7 @@ async def complete_json(messages: list[dict], schema: type[BaseModel]) -> dict:
         raise ValueError("Local model must use a loopback host")
     if endpoint.scheme != "https" and not (cfg.ai_provider == "local" and loopback and endpoint.scheme == "http"):
         raise ValueError("Model endpoint must use HTTPS except loopback local inference")
-    input_bytes = len(json.dumps(messages, ensure_ascii=False).encode("utf-8"))
+    input_bytes = len(json.dumps(messages if tools is None else {"messages":messages,"tools":tools}, ensure_ascii=False).encode("utf-8"))
     if input_bytes > 12000 or not 1 <= cfg.llm_max_tokens <= 1200:
         raise ValueError("Model request exceeds local token limits")
     # Conservative reservation: byte-level input upper bound + protocol overhead;
@@ -71,11 +80,16 @@ async def complete_json(messages: list[dict], schema: type[BaseModel]) -> dict:
     call_id = await asyncio.to_thread(reserve_call, audit, reserve, model, cfg.llm_max_calls, cfg.llm_budget_cny)
     payload = {"model": model, "messages": messages, "response_format": {"type":"json_object"},
                "temperature": 0.4, "max_tokens": cfg.llm_max_tokens}
+    if tools is not None:
+        payload.pop("response_format")
+        payload["tools"]=tools
+        payload["tool_choice"]="auto"
     if cfg.ai_provider == "deepseek":
         payload['thinking'] = {'type':'disabled'}
     started = time.perf_counter()
     usage = None
     status = 'failed'
+    response_id = None
     try:
         async with httpx.AsyncClient(timeout=cfg.llm_timeout_seconds, trust_env=cfg.ai_provider != "local") as client:
             async with client.stream("POST", base.rstrip('/')+'/chat/completions',
@@ -89,7 +103,16 @@ async def complete_json(messages: list[dict], schema: type[BaseModel]) -> dict:
                     body.extend(chunk)
         result = json.loads(body)
         usage = result.get('usage')
+        response_id = result.get("id")
         choice = result['choices'][0]
+        if tools is not None:
+            if choice.get("finish_reason") not in ("stop","tool_calls"):
+                raise ModelOutputError("Tool completion did not finish normally")
+            message=choice["message"]
+            if not isinstance(message,dict) or message.get("role","assistant")!="assistant":
+                raise ModelOutputError("Invalid assistant message")
+            status="ok"
+            return {"message":message,"call_id":call_id,"response_id":response_id,"model":model}
         if choice.get('finish_reason') != 'stop':
             raise ModelOutputError('Model completion did not finish normally')
         output = schema.model_validate_json(choice['message']['content']).model_dump()
@@ -102,4 +125,4 @@ async def complete_json(messages: list[dict], schema: type[BaseModel]) -> dict:
                 and usage['total_tokens'] >= 0):
             charged = usage['total_tokens'] * 100 / 1_000_000
         await asyncio.to_thread(settle_call, audit, {'event':'settled','call_id':call_id,'status':status,
-            'elapsed_seconds':round(time.perf_counter()-started,3),'usage':usage,'charged_upper_cny':charged})
+            'elapsed_seconds':round(time.perf_counter()-started,3),'usage':usage,'charged_upper_cny':charged,'provider_response_id':response_id if isinstance(response_id,str) else None})

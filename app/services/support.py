@@ -37,14 +37,17 @@ async def record(db, session, reply, intent, decision, facts=None, citations=Non
 async def send_message(db, session_id, content, use_model=False):
     session = await locked_session(db, session_id)
     db.add(SupportMessage(session_id=session_id,role="user",content=content))
+    from app.services.retail import retail_identity
+    customer_id=await retail_identity(db,session_id)
+    recent=await history(db,session_id) if customer_id is not None and use_model else []
     result = await support_graph.ainvoke({"content":content,"pending":session.pending_action,
-                                         "use_model":use_model,"trace":[]})
+        "use_model":use_model,"trace":[],"customer_id":customer_id,"db":db,"history":recent})
     if result.get("confirmation") in ("confirm","cancel"):
         return await _confirm(db,session,result["confirmation"]=="confirm",result["trace"])
     if result.get("pending_next"):
         session.pending_action=result["pending_next"]
         session.status="WAITING_CONFIRMATION"
-    decision={"screening":result["screening"],"rule":result.get("rule"),"trace":result["trace"],"tools":result.get("tools",[])}
+    decision={"screening":result["screening"],"rule":result.get("rule"),"trace":result["trace"],"tools":result.get("tools",[]),"mode":result.get("mode","rule") }
     return await record(db,session,result["reply"],result["intent"],decision,result.get("facts"),result.get("citations"))
 
 async def _confirm(db, session, approved, trace=None):
@@ -53,7 +56,16 @@ async def _confirm(db, session, approved, trace=None):
     pending=session.pending_action
     session.pending_action=None
     session.status="ESCALATED" if approved else "OPEN"
-    if approved:
+    if approved and pending.get("order_id"):
+        from app.services.retail import retail_identity, submit_refund
+        identity=await retail_identity(db,session.id)
+        ticket=await submit_refund(db,session.id,identity,pending["order_id"])
+        if not ticket:
+            session.status="OPEN"
+            reply="订单当前不符合审核条件，未创建工单。"
+        else:
+            reply=f"已提交本地退款审核工单 {ticket.id}；等待人工审核，未执行退款。"
+    elif approved:
         reply="已记录人工审核申请（本地演示，无真实外部工单）。" if pending.get("type") in ("refund","refund_review") else "已记录人工处理诉求（本地演示，无真实外部工单）。"
     else:
         reply="已取消申请，您可以继续咨询。"
