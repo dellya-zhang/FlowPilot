@@ -27,6 +27,7 @@ class MarketingState(TypedDict, total=False):
     trace: list[str]
     compliance_retry: int
     violations: list[str]
+    model_receipt: dict
 
 
 async def understand_goal(state):
@@ -88,6 +89,7 @@ async def critic(state):
     plan['content_preview_variants'] = [{'title':state['title'], 'copy':state['message'], 'finalized':False}]
     plan['compliance'] = {'decision':'PASS', 'checks':['budget_ceiling','estimated_contact_cost','consent_audience','prohibited_claims','limited_refusal_patterns'], 'scope':'演示规则通过；不代表法律合规或业务事实审核'}
     plan['content_source']=state.get('content_source','configured_provider')
+    if state.get('model_receipt'):plan['generation_receipt']=state['model_receipt']
     plan['trace'] = state['trace']+['plan_output']
     # Completeness rubric, never interpreted as confidence or conversion probability.
     return {'score':sum([20,20,20,20,20 if plan['cost_estimate']['source']=='operator_input' else 0]), 'plan_data':plan}

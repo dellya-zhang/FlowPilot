@@ -188,3 +188,5 @@ docs/          设计及验证记录
 ### 真实模型验收（主动付费）
 
 本地启动 DeepSeek 模式后运行 `python scripts/live_retail.py --confirm-paid`。脚本提交新的营销需求、检查实际模型来源、运行客服原生工具循环并验证供应商响应 ID；不把 Mock 通过当成真实模型成功。默认 CI 不访问收费服务。模型额度由 .env 中 LLM_MAX_CALLS 与 LLM_BUDGET_CNY 控制，日志是保守上界而非实际账单。
+
+真实模型候选包含 `generation_receipt`（供应商响应 ID、模型、本地调用 ID、Token 数和延迟），同步写入候选事件。修订后保留原始生成凭据，但当前文案来源标记为 operator_revision。

@@ -26,9 +26,10 @@ with httpx.Client(base_url=f"http://127.0.0.1:{args.port}/api/v1",headers=header
         time.sleep(1)
     candidates=req("GET",f"/campaigns/{cid}/candidates")
     assert state=="WAITING_APPROVAL" and candidates and all(x["plan_data"]["content_source"]=="deepseek" for x in candidates),state
+    assert all(x["plan_data"].get("generation_receipt",{}).get("provider_response_id") for x in candidates),"Missing provider response IDs in candidates"
     sid=req("POST","/support/sessions?member_id=1")["session_id"]
     result=req("POST",f"/support/sessions/{sid}/messages",json={"content":"请查询我的订单与会员积分","use_model":True})
     assert result["decision"]["mode"]=="model_tools",result["decision"]
     trace=result["decision"]["trace"]
     assert any(item.get("provider_response_id") for item in trace),"No provider response ID"
-    print(json.dumps({"campaign_id":cid,"candidate_count":len(candidates),"candidate_sources":[x["plan_data"]["content_source"] for x in candidates],"support_trace":trace,"runtime":req("GET","/retail/runtime")},ensure_ascii=False,indent=2))
+    print(json.dumps({"campaign_id":cid,"candidate_count":len(candidates),"candidate_sources":[x["plan_data"]["content_source"] for x in candidates],"generation_receipts":[x["plan_data"]["generation_receipt"] for x in candidates],"support_trace":trace,"runtime":req("GET","/retail/runtime")},ensure_ascii=False,indent=2))

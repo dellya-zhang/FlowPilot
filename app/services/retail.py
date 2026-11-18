@@ -1,7 +1,7 @@
 """Deterministic fictional retail data and session-scoped read tools.
 Never expose a caller/model-supplied customer_id in a tool schema.
 """
-from sqlalchemy import select
+from sqlalchemy import select, update
 from app.models.entities import Customer, RetailProfile, RetailOrder, RetailSession, RetailTicket
 from app.services.knowledge import search
 from pydantic import BaseModel, ConfigDict, Field
@@ -69,6 +69,8 @@ async def retail_identity(db,session_id):
     return row.customer_id if row else None
 
 async def submit_refund(db, session_id, customer_id, order_id):
+    # Serialize duplicate requests across independent support sessions for this order.
+    await db.execute(update(RetailOrder).where(RetailOrder.id==order_id,RetailOrder.customer_id==customer_id).values(status=RetailOrder.status))
     eligibility=await run_tool(db,customer_id,"check_refund_eligibility",{"order_id":order_id})
     if not eligibility.get("eligible_for_review"):return None
     old=await db.scalar(select(RetailTicket).where(RetailTicket.customer_id==customer_id,

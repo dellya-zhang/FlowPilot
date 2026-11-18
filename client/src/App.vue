@@ -94,7 +94,7 @@ onBeforeUnmount(()=>{window.removeEventListener('hashchange',routeHash);if(timer
         <label v-if="current.status==='WAITING_APPROVAL'">审批 / 晋级依据<input v-model="reason" placeholder="记录运营决策依据（可选）"></label>
         <div class="candidate-grid"><article v-for="x in candidates" :key="x.id" class="candidate">
           <div class="heading"><small>候选 {{x.variant}} · v{{x.plan_data?.revision||1}}</small><span class="pill">{{x.plan_data?.content_source||'未知来源'}}</span></div>
-          <h3>{{x.title}}</h3><p class="copy">{{x.message}}</p><p>{{x.reasoning}}</p>
+          <p class="hint" v-if="x.plan_data?.generation_receipt">模型 {{x.plan_data.generation_receipt.model}} · Token {{x.plan_data.generation_receipt.usage?.total_tokens??"未知"}} · {{x.plan_data.generation_receipt.elapsed_ms}} ms</p><h3>{{x.title}}</h3><p class="copy">{{x.message}}</p><p>{{x.reasoning}}</p>
           <dl><dt>目标人数</dt><dd>{{x.plan_data?.segment?.treatment_size??'—'}}</dd><dt>预计费用</dt><dd>{{x.plan_data?.cost_estimate?.total_cny??'待确认'}}</dd><dt>比较条件</dt><dd>{{x.plan_data?.comparison?.value||'—'}}</dd></dl>
           <details><summary>结构化方案与执行轨迹</summary><pre>{{pretty(x.plan_data)}}</pre></details>
           <div v-if="current.status==='WAITING_APPROVAL'&&!experiment" class="actions"><label class="check"><input type="checkbox" :value="x.id" v-model="selected" :disabled="selected.length>=2&&!selected.includes(x.id)"> A/B 候选</label><button @click="editCandidate(x)">修订</button><button class="primary" :disabled="busy" @click="guard(()=>approve(x))">审批</button></div>

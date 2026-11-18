@@ -108,7 +108,7 @@ async def generate_candidates(campaign_id: str, gate=None):
                         db.add(CandidatePlan(candidate_id=cid, data=data["plan_data"]))
                         await db.flush()
                         await save_revision(db, await current_snapshot(db,candidate), "首次生成")
-                    await emit(db, campaign_id, "candidate.ready", {"variant": variant, "candidate_id": cid}, owner=owner)
+                    await emit(db, campaign_id, "candidate.ready", {"variant": variant, "candidate_id": cid,"model_receipt":(data.get("plan_data") or {}).get("generation_receipt")}, owner=owner)
                     successes += 1
             finally:
                 for child in children:

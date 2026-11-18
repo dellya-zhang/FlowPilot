@@ -117,6 +117,10 @@ async def _complete(messages, schema=None, tools=None):
             raise ModelOutputError('Model completion did not finish normally')
         output = schema.model_validate_json(choice['message']['content']).model_dump()
         status = 'ok'
+        if schema in (DraftOutput, PlannedDraftOutput):
+            output["model_receipt"]={"call_id":call_id,"provider_response_id":response_id if isinstance(response_id,str) else None,
+                "model":model,"usage":{"total_tokens":usage.get("total_tokens")} if isinstance(usage,dict) else None,
+                "elapsed_ms":round((time.perf_counter()-started)*1000)}
         return output
     finally:
         # Unknown usage keeps the full reservation, including network timeout.
