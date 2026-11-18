@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse, Response
@@ -268,20 +269,70 @@ async def new_support_session(member_id: int | None = Query(None,ge=1,le=500), d
 async def support_message(session_id: str, data: SupportMessageInput, request: Request,
                           db: AsyncSession = Depends(session_dep)):
     await limit(request, "support", 30)
+    return await run_support_turn(db, session_id, data, request)
+
+
+async def run_support_turn(db, session_id, data, request, on_node=None):
     if not data.use_model or get_settings().ai_provider == "mock":
-        return await send_message(db, session_id, data.content)
+        return await send_message(db, session_id, data.content, on_node=on_node)
     slots=request.app.state.model_slots
     try:
         await asyncio.wait_for(slots.acquire(), timeout=0.2)
     except TimeoutError:
         raise HTTPException(429, "Model capacity reached")
     try:
-        return await asyncio.wait_for(send_message(db, session_id, data.content, True), timeout=get_settings().support_timeout_seconds)
+        return await asyncio.wait_for(send_message(db, session_id, data.content, True, on_node=on_node), timeout=get_settings().support_timeout_seconds)
     except TimeoutError:
         await db.rollback()
         raise HTTPException(504, "Support model timed out; retry without model")
     finally:
         slots.release()
+
+
+@router.post("/support/sessions/{session_id}/messages/stream")
+async def support_message_stream(session_id: str, data: SupportMessageInput, request: Request):
+    await limit(request, "support", 30)
+    async with SessionLocal() as db:
+        if await db.get(SupportSession, session_id) is None:
+            raise HTTPException(404, "Support session not found")
+
+    async def events():
+        queue = asyncio.Queue()
+
+        async def run():
+            try:
+                async with SessionLocal() as db:
+                    result = await run_support_turn(
+                        db, session_id, data, request,
+                        on_node=lambda node: queue.put_nowait(("node", {"node": node})),
+                    )
+                queue.put_nowait(("complete", result.model_dump(mode="json")))
+            except HTTPException as exc:
+                queue.put_nowait(("error", {"status": exc.status_code, "detail": exc.detail}))
+            except Exception as exc:
+                logging.getLogger(__name__).error("Support stream failed: %s", type(exc).__name__)
+                queue.put_nowait(("error", {"status": 500, "detail": "Support turn failed"}))
+
+        def frame(event, payload):
+            return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+        yield frame("received", {"session_id": session_id})
+        task = asyncio.create_task(run())
+        try:
+            while True:
+                try:
+                    event, payload = await asyncio.wait_for(queue.get(), timeout=10)
+                except TimeoutError:
+                    yield ": keep-alive\n\n"
+                    continue
+                yield frame(event, payload)
+                if event in ("complete", "error"):
+                    break
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/support/sessions/{session_id}/confirm", response_model=SupportDecision)

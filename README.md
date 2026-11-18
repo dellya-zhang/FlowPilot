@@ -183,6 +183,10 @@ docs/          设计及验证记录
 
 本地 Docker：复制 .env.example 为 .env，设置 AI_PROVIDER=deepseek 和 DEEPSEEK_API_KEY（不提交密钥），执行 `docker compose up --build`，访问 <http://127.0.0.1:8000/console/>。不配 Key 可保留 AI_PROVIDER=mock。
 
+Vue 新建的 A/B 试点会在服务端冻结必须先结算的约束。旧 API 调用可在创建时传 `require_finalized: true` 启用同一约束。
+
+客服工作台使用 `POST /api/v1/support/sessions/{id}/messages/stream` 接收 SSE。首帧提供会话 ID，节点完成时发送事件，会话落档后返回最终结果。旧版 JSON 消息接口仍可使用。客服工作台可按需勾选已配置的模型，消费者端使用本地查询流程。
+
 非 Docker：先启动 FastAPI，再在 client/ 执行 npm ci、npm run check、npm run build；访问同一个 /console/。开发模式 npm run dev 对应 http://127.0.0.1:5173/console/，API 代理到本机 8000。本地、Docker 和 CI 均通过 npm ci 使用提交的依赖锁文件。
 
 新版提供活动列表、创建/澄清、候选修订与审批、A/B 试点/反馈/结算/晋级、全量交付、合成会员与客服只读工具、工单和审计。原有复盘批量录入等高级功能仍可在旧版工作台完成。

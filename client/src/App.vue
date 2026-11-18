@@ -5,7 +5,7 @@ const token=ref(''),api=client(()=>token.value),view=ref('campaigns'),error=ref(
 const campaigns=ref<Json[]>([]),current=ref<Json|null>(null),candidates=ref<Json[]>([]),events=ref<Json[]>([]),artifacts=ref<Json[]>([]),evaluation=ref<Json|null>(null),experiment=ref<Json|null>(null),questions=ref<string[]>([]),selected=ref<string[]>([])
 const search=ref(''),status=ref(''),reason=ref(''),settlement=ref('浏览器演示：提前结束合成反馈观察窗口'),feedbackCustomer=reactive<Record<string,number>>({}),edit=reactive({id:'',title:'',message:'',reason:''})
 const form=reactive({brief:'',audience:'dormant',budget:5000,known_benefits:'',min_days_since_purchase:30,min_lifetime_spend_cny:500,channel:'sms',unit_cost_cny:0.1,pilot_ratio:0.1,window_days:7,comparison_axis:'message',reference_message:'',contacts_per_user:1})
-const members=ref<Json[]>([]),member=ref(1),sid=ref(''),messages=ref<Json[]>([]),audits=ref<Json[]>([]),tickets=ref<Json[]>([]),pending=ref(false),question=ref(''),useModel=ref(false),lastMode=ref(''),chatBusy=ref(false)
+const members=ref<Json[]>([]),member=ref(1),sid=ref(''),messages=ref<Json[]>([]),audits=ref<Json[]>([]),tickets=ref<Json[]>([]),pending=ref(false),question=ref(''),useModel=ref(false),lastMode=ref(''),supportStep=ref(''),chatBusy=ref(false)
 const labels:Record<string,string>={CREATED:'待生成',NEEDS_CLARIFICATION:'待补充',GENERATING:'生成中',WAITING_APPROVAL:'待审批',PILOT_READY:'待交付',PILOT_EXPORTED:'试点完成',COMPLETED:'已交付',FAILED:'失败',RUNNING:'试点观察',FINALIZED:'已结算',PROMOTED:'已晋级'}
 const tabs=[['campaigns','活动管理'],['plan','活动详情'],['members','会员画像'],['support','客服工作台'],['consumer','消费者端'],['settings','运行设置']]
 const visible=computed(()=>campaigns.value.filter(c=>(!status.value||c.status===status.value)&&c.brief.toLowerCase().includes(search.value.toLowerCase())))
@@ -15,7 +15,7 @@ let timer:ReturnType<typeof setInterval>|undefined,stream:EventSource|null=null,
 function route(tab:string){view.value=tab;location.hash=tab}
 function routeHash(){const next=location.hash.slice(1);if(tabs.some(x=>x[0]===next))view.value=next}
 async function guard(fn:()=>Promise<void>){if(busy.value)return;busy.value=true;error.value='';try{await fn()}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{busy.value=false}}
-async function load(){const [c,m,r]=await Promise.all([api.request<Json[]>('/campaigns'),api.request<Json[]>('/retail/members'),api.request('/retail/runtime')]);campaigns.value=c;members.value=m;runtime.value=r;useModel.value=!!live.value}
+async function load(){const [c,m,r]=await Promise.all([api.request<Json[]>('/campaigns'),api.request<Json[]>('/retail/members'),api.request('/retail/runtime')]);campaigns.value=c;members.value=m;runtime.value=r}
 function planInput(){const {brief,audience,budget,...p}=form;return {...p,available_channels:p.comparison_axis==='channel'?['sms','in_app']:[p.channel],channel_costs:{sms:p.unit_cost_cny,in_app:0.05,manual:p.unit_cost_cny}}}
 async function refresh(id=currentId.value){
   if(!id)return
@@ -40,7 +40,7 @@ async function resume(){const root='/campaigns/'+currentId.value;await api.reque
 async function approve(x:Json){await api.request('/campaigns/'+currentId.value+'/approve','POST',{candidate_id:x.id,expected_revision:x.plan_data?.revision||1,decision_reason:reason.value||null});await refresh()}
 function editCandidate(x:Json){Object.assign(edit,{id:x.id,title:x.title,message:x.message,reason:''})}
 async function saveEdit(x:Json){await api.request('/campaigns/'+currentId.value+'/candidates/'+x.id+'/revisions','POST',{expected_revision:x.plan_data?.revision||1,title:edit.title,message:edit.message,reason:edit.reason});edit.id='';await refresh()}
-async function startExperiment(){await api.request('/experiments','POST',{campaign_id:currentId.value,candidate_ids:selected.value,expected_revisions:Object.fromEntries(candidates.value.filter(x=>selected.value.includes(x.id)).map(x=>[x.id,x.plan_data?.revision||1]))});await refresh()}
+async function startExperiment(){await api.request('/experiments','POST',{campaign_id:currentId.value,candidate_ids:selected.value,require_finalized:true,expected_revisions:Object.fromEntries(candidates.value.filter(x=>selected.value.includes(x.id)).map(x=>[x.id,x.plan_data?.revision||1]))});await refresh()}
 async function recordFeedback(arm:Json){const id=Number(feedbackCustomer[arm.candidate_id]||arm.users[0]);await api.request('/experiments/'+experiment.value?.id+'/feedback','POST',{event_id:experiment.value?.id+'-'+id,customer_id:id,candidate_id:arm.candidate_id});await refresh()}
 async function settle(){await api.request('/experiments/'+experiment.value?.id+'/finalize','POST',{simulation_reason:settlement.value||null});await refresh()}
 async function promote(arm:Json){await api.request('/experiments/'+experiment.value?.id+'/promote?require_finalized=true&candidate_id='+arm.candidate_id,'POST',{decision_reason:reason.value||null});await refresh()}
@@ -48,7 +48,21 @@ async function full(){await api.request('/campaigns/'+currentId.value+'/full','P
 async function startChat(){sid.value=(await api.request('/support/sessions?member_id='+member.value,'POST')).session_id;await chatRefresh()}
 async function chatRefresh(){const root='/support/sessions/'+sid.value;const [m,a,s,t]=await Promise.all([api.request<Json[]>(root+'/messages'),api.request<Json[]>(root+'/audit'),api.request(root),api.request<Json[]>('/retail/sessions/'+sid.value+'/tickets')]);messages.value=m;audits.value=a;pending.value=s.needs_confirmation;tickets.value=t;lastMode.value=a.at(-1)?.decision?.mode||''}
 async function chat(fn:()=>Promise<void>){if(chatBusy.value)return;chatBusy.value=true;error.value='';try{await fn()}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{chatBusy.value=false}}
-async function send(text=question.value){if(!text.trim())return;if(!sid.value)await startChat();await api.request('/support/sessions/'+sid.value+'/messages','POST',{content:text,use_model:useModel.value});question.value='';await chatRefresh();runtime.value=await api.request('/retail/runtime')}
+async function send(text=question.value){
+  if(!text.trim())return
+  if(!sid.value)await startChat()
+  supportStep.value=''
+  try {
+    await api.supportStream('/support/sessions/'+sid.value+'/messages/stream',
+      {content:text,use_model:view.value==='support'&&useModel.value},
+      node=>{ supportStep.value=node })
+    question.value=''
+    await chatRefresh()
+    runtime.value=await api.request('/retail/runtime')
+  } finally {
+    supportStep.value=''
+  }
+}
 async function confirm(yes:boolean){await api.request('/support/sessions/'+sid.value+'/confirm?approved='+yes,'POST');await chatRefresh()}
 function pretty(x:unknown){return JSON.stringify(x,null,2)}
 onMounted(()=>{routeHash();window.addEventListener('hashchange',routeHash);guard(load);timer=setInterval(()=>{if(currentId.value&&!busy.value&&view.value==='plan')refresh().catch(e=>error.value=e.message)},2500)})
@@ -59,7 +73,7 @@ onBeforeUnmount(()=>{window.removeEventListener('hashchange',routeHash);if(timer
 <div class="shell" :class="{consumer: view==='consumer'}">
   <aside class="side"><a class="brand" href="#campaigns">FlowPilot<span>零售会员运营</span></a><nav><button v-for="t in tabs" :key="t[0]" :class="{active:view===t[0]}" @click="route(t[0])">{{t[1]}}</button></nav><div class="side-foot">本地工作区<br>合成会员与订单</div></aside>
   <main>
-    <header class="top"><a v-if="view==='consumer'" href="#support">返回客服工作台</a><div><small>工作台 / {{tabs.find(t=>t[0]===view)?.[1]}}</small><h1>{{tabs.find(t=>t[0]===view)?.[1]}}</h1></div><span class="mode" :class="{live}">{{runtime.provider==='mock'?'离线模板':live?'模型已配置 · '+runtime.model:'模型未配置 / 未连接'}}</span></header>
+    <header class="top"><a v-if="view==='consumer'" href="#support">返回客服工作台</a><div><small>工作台 / {{tabs.find(t=>t[0]===view)?.[1]}}</small><h1>{{tabs.find(t=>t[0]===view)?.[1]}}</h1></div><span v-if="view!=='consumer'" class="mode" :class="{live}">{{runtime.provider==='mock'?'离线模板':live?'模型已配置 · '+runtime.model:'模型未配置 / 未连接'}}</span></header>
     <div v-if="error" role="alert" class="error">{{error}}</div>
     <section v-if="view==='campaigns'">
       <div class="stats"><div><small>全部活动</small><strong>{{campaigns.length}}</strong></div><div><small>待审批</small><strong>{{campaigns.filter(c=>c.status==='WAITING_APPROVAL').length}}</strong></div><div><small>已交付</small><strong>{{campaigns.filter(c=>c.status==='COMPLETED').length}}</strong></div></div>
@@ -112,7 +126,8 @@ onBeforeUnmount(()=>{window.removeEventListener('hashchange',routeHash);if(timer
     </section>
     <section v-else-if="view==='members'" class="panel"><div class="heading"><h2>合成会员数据库</h2><small>显示前 50 条，非真实个人</small></div><div class="scroll"><table><thead><tr><th>ID</th><th>等级</th><th>积分</th><th>最近消费间隔</th><th>累计消费</th></tr></thead><tbody><tr v-for="m in members" :key="m.id"><td>{{m.id}}</td><td>{{m.tier}}</td><td>{{m.points}}</td><td>{{m.days_since_purchase}} 天</td><td>¥{{m.lifetime_spend_cny}}</td></tr></tbody></table></div></section>
     <section v-else-if="view==='support'||view==='consumer'" class="chat-grid"><div class="panel"><div class="heading"><h2>消费者会话</h2><button :disabled="chatBusy" @click="chat(startChat)">新会话</button></div><label>合成会员<select v-model.number="member" :disabled="chatBusy" @change="sid='';messages=[];audits=[];tickets=[];pending=false"><option v-for="m in members" :key="m.id" :value="m.id">会员 {{m.id}} · {{m.tier}}</option></select></label>
-    <label class="check"><input type="checkbox" v-model="useModel" :disabled="!live||chatBusy"> 使用已配置模型（会发送合成业务上下文）</label><p class="hint" v-if="lastMode">本轮来源：{{lastMode}}</p>
+    <label v-if="view==='support'" class="check"><input type="checkbox" v-model="useModel" :disabled="!live||chatBusy"> 使用已配置模型（会发送合成业务上下文）</label><p class="hint" v-if="view==='support' && lastMode">本轮来源：{{lastMode}}</p>
+    <p v-if="view==='support' && supportStep" class="hint" role="status">已完成：{{supportStep}}</p>
     <div class="chat"><div v-if="!messages.length" class="bubble">您好，请问需要查询订单、积分或退款政策吗？</div><div v-for="(m,i) in messages" :key="i" :class="['bubble',m.role]">{{m.content}}</div></div>
     <div v-if="pending" class="confirm"><strong>待确认审核操作</strong><button :disabled="chatBusy" @click="chat(()=>confirm(true))">确认</button><button :disabled="chatBusy" @click="chat(()=>confirm(false))">取消</button></div>
     <div class="quick"><button v-for="q in ['我的订单','我的积分','退款政策是什么','查看物流']" :key="q" :disabled="chatBusy" @click="chat(()=>send(q))">{{q}}</button></div><form class="send" @submit.prevent="chat(()=>send())"><input v-model="question" placeholder="请输入问题" maxlength="2000" required><button class="primary" :disabled="chatBusy">{{chatBusy?'处理中':'发送'}}</button></form></div>

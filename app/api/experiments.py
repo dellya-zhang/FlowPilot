@@ -26,6 +26,7 @@ class ExperimentInput(BaseModel):
     expected_revisions: dict[str,int] | None = None
     candidate_ids: list[str] = Field(min_length=2, max_length=2)
     per_arm: int | None = Field(default=None, ge=1, le=50)
+    require_finalized: bool = False
 
 
 class PromotionInput(InputModel):
@@ -85,7 +86,13 @@ async def create(data: ExperimentInput, db=Depends(session_dep)):
         except (OSError, BotoCoreError, ClientError) as exc:
             raise HTTPException(503,"Pilot storage unavailable") from exc
         artifacts[cid]={"key":key,"sha256":delivery["sha256"],"row_count":len(arms[cid]),"trace":delivery["trace"]}
-    db.add(ExperimentBinding(experiment_id=exp.id,data={"bound_at":datetime.now(timezone.utc).isoformat(),"snapshots":{s["candidate_id"]:s for s in snapshots},"comparison":comparison,"pilot_artifacts":artifacts}))
+    db.add(ExperimentBinding(experiment_id=exp.id, data={
+        "bound_at": datetime.now(timezone.utc).isoformat(),
+        "snapshots": {s["candidate_id"]: s for s in snapshots},
+        "comparison": comparison,
+        "pilot_artifacts": artifacts,
+        "require_finalized": data.require_finalized,
+    }))
     await db.commit()
     return {"id": exp.id, "arms": arms, "status": exp.status}
 
@@ -175,7 +182,9 @@ async def finalize_experiment(eid: str, data: FinalizeInput, db=Depends(session_
 @router.post("/{eid}/promote")
 async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Body(default=None), require_finalized: bool = False, db=Depends(session_dep)):
     exp = await locked(db, eid)
-    if require_finalized and exp.status == "RUNNING":
+    binding = await db.get(ExperimentBinding, eid)
+    requires_settlement = require_finalized or (binding is not None and binding.data.get("require_finalized", False))
+    if requires_settlement and exp.status == "RUNNING":
         raise HTTPException(409, "Finalize the experiment before promotion")
     if exp.status not in ("RUNNING", "FINALIZED"):
         if exp.winner == candidate_id:
@@ -188,7 +197,6 @@ async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Bod
     campaign = await require_campaign(db, exp.campaign_id)
     if campaign.status != "WAITING_APPROVAL":
         raise HTTPException(409, "Campaign already advanced")
-    binding=await db.get(ExperimentBinding,eid)
     candidate=await db.get(Candidate,candidate_id)
     snapshot=binding.data['snapshots'][candidate_id] if binding else await checked_snapshot(db,candidate)
     await bind_decision(db,campaign,snapshot,'experiment:'+eid,data.decision_reason if data else None)

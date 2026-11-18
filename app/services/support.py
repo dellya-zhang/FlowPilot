@@ -1,4 +1,6 @@
 """Session transaction boundary for the customer-support graph."""
+from contextlib import aclosing
+
 from fastapi import HTTPException
 from sqlalchemy import select, update
 from app.models.entities import SupportSession, SupportMessage, SupportAudit
@@ -34,14 +36,35 @@ async def record(db, session, reply, intent, decision, facts=None, citations=Non
     return SupportDecision(reply=reply,intent=intent,needs_confirmation=bool(session.pending_action),
         session_status=session.status,facts=facts or [],citations=citations or [],decision=decision)
 
-async def send_message(db, session_id, content, use_model=False):
+async def send_message(db, session_id, content, use_model=False, on_node=None):
     session = await locked_session(db, session_id)
     db.add(SupportMessage(session_id=session_id,role="user",content=content))
     from app.services.retail import retail_identity
     customer_id=await retail_identity(db,session_id)
     recent=await history(db,session_id) if customer_id is not None and use_model else []
-    result = await support_graph.ainvoke({"content":content,"pending":session.pending_action,
-        "use_model":use_model,"trace":[],"customer_id":customer_id,"db":db,"history":recent})
+    refund_order_followup = False
+    if customer_id is not None and not session.pending_action:
+        from app.agents.retail_tools import order_id
+        order = order_id(content)
+        if order and content.strip().upper() == order:
+            previous = await db.scalar(select(SupportAudit).where(
+                SupportAudit.session_id == session_id).order_by(SupportAudit.id.desc()).limit(1))
+            if previous and previous.data.get("intent") == "refund":
+                trace = previous.data.get("decision", {}).get("trace", [])
+                refund_order_followup = any(item.get("node") == "refund_order_required" for item in trace)
+    inputs = {"content":content,"pending":session.pending_action,
+        "use_model":use_model,"trace":[],"customer_id":customer_id,"db":db,"history":recent,
+        "refund_order_followup":refund_order_followup}
+    if on_node is None:
+        result = await support_graph.ainvoke(inputs)
+    else:
+        async with aclosing(support_graph.astream(inputs, stream_mode=["updates", "values"])) as stream:
+            async for mode, value in stream:
+                if mode == "values":
+                    result = value
+                else:
+                    for node in value:
+                        on_node(node)
     if result.get("confirmation") in ("confirm","cancel"):
         return await _confirm(db,session,result["confirmation"]=="confirm",result["trace"])
     if result.get("pending_next"):

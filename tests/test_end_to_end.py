@@ -277,15 +277,15 @@ async def test_experiment_finalization_and_feedback_freeze():
             assert (await c.post(path + "/generate")).status_code == 202
             await __import__("asyncio").gather(*list(app.state.tasks))
             ids = [x["id"] for x in (await c.get(path + "/candidates")).json()[:2]]
-            exp = await c.post("/api/v1/experiments", json={"campaign_id": cid, "candidate_ids": ids})
+            exp = await c.post("/api/v1/experiments", json={"campaign_id": cid, "candidate_ids": ids, "require_finalized": True})
             assert exp.status_code == 201, exp.text
             eid = exp.json()["id"]
             route = f"/api/v1/experiments/{eid}"
             user = exp.json()["arms"][ids[0]][0]
             feedback = {"event_id": eid + "-test", "customer_id": user, "candidate_id": ids[0]}
             assert (await c.post(route + "/feedback", json=feedback)).status_code == 200
-            promote = route + "/promote?candidate_id=" + ids[0] + "&require_finalized=true"
-            assert (await c.post(promote)).status_code == 409
+            promote = route + "/promote?candidate_id=" + ids[0]
+            assert (await c.post(promote + "&require_finalized=false")).status_code == 409
             assert (await c.post(route + "/finalize", json={})).status_code == 409
             result = await c.post(route + "/finalize", json={"simulation_reason": "模拟提前结算"})
             assert result.status_code == 200, result.text

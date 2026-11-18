@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app, lifespan
@@ -61,3 +62,40 @@ async def test_ab_pilot_csv():
                 assert response.status_code==200 and response.headers["X-Content-SHA256"]
                 lists.append({int(r["customer_id"]) for r in csv.DictReader(io.StringIO(response.content.decode("utf-8-sig")))})
             assert lists[0] and lists[1] and lists[0].isdisjoint(lists[1])
+
+
+@pytest.mark.asyncio
+async def test_support_stream_returns_nodes_then_committed_result():
+    async with lifespan(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            root = "/api/v1/support/sessions"
+            sid = (await client.post(root + "?member_id=1")).json()["session_id"]
+            path = f"{root}/{sid}/messages"
+            response = await client.post(path + "/stream", json={"content": "帮我查订单"})
+            assert response.status_code == 200
+            assert response.headers["content-type"].startswith("text/event-stream")
+            frames = [
+                (event.removeprefix("event: "), json.loads(data.removeprefix("data: ")))
+                for event, data in (frame.splitlines() for frame in response.text.strip().split("\n\n"))
+            ]
+            assert frames[0] == ("received", {"session_id": sid})
+            assert [payload["node"] for name, payload in frames if name == "node"] == [
+                "intent_screening", "retrieve", "compose_reply", "compliance_guard",
+            ]
+            name, result = frames[-1]
+            assert name == "complete" and "FP-0001-A" in result["reply"] and not result["needs_confirmation"]
+            history = (await client.get(path)).json()
+            assert history[-1] == {"role": "assistant", "content": result["reply"]}
+            missing = await client.post(f"{root}/missing/messages/stream", json={"content": "我的订单"})
+            assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("number", ["00000020000101001X", "0000000000000001"])
+async def test_terminal_compliance_blocks_sensitive_number_patterns(number):
+    snapshot = {"title": "服务说明", "message": f"请核验 {number}", "candidate_id": "a", "revision": 1}
+    binding = {"snapshot": snapshot, "snapshot_sha256": digest(snapshot), "candidate_id": "a", "revision": 1}
+    with pytest.raises(HTTPException) as blocked:
+        await delivery_graph.ainvoke({"binding": binding, "customers": [], "budget": 100, "kind": "full"})
+    assert blocked.value.status_code == 422
+    assert blocked.value.detail["issues"] == ["possible_personal_information"]
