@@ -10,7 +10,13 @@ from app.schemas.contracts import InputModel
 from app.models.entities import Campaign, Candidate, Customer, Experiment, Conversion, ExperimentBinding
 from app.services.campaigns import require_campaign, emit
 from app.services.planning import audience_pool, planning_input, freeze_audience
-from app.services.versions import checked_snapshot, comparison_contract, bind_decision
+from app.services.versions import checked_snapshot, comparison_contract, bind_decision, digest
+from app.agents.materialize import delivery_graph
+from app.services.storage import put_blob, get_verified_blob
+from fastapi.responses import Response
+from types import SimpleNamespace
+import asyncio
+from botocore.exceptions import BotoCoreError, ClientError
 
 router = APIRouter(prefix="/api/v1/experiments", tags=["experiments"])
 
@@ -20,6 +26,7 @@ class ExperimentInput(BaseModel):
     expected_revisions: dict[str,int] | None = None
     candidate_ids: list[str] = Field(min_length=2, max_length=2)
     per_arm: int | None = Field(default=None, ge=1, le=50)
+    require_finalized: bool = False
 
 
 class PromotionInput(InputModel):
@@ -67,9 +74,37 @@ async def create(data: ExperimentInput, db=Depends(session_dep)):
     exp = Experiment(campaign_id=campaign.id, arms=arms)
     db.add(exp)
     await db.flush()
-    db.add(ExperimentBinding(experiment_id=exp.id,data={"bound_at":datetime.now(timezone.utc).isoformat(),"snapshots":{s["candidate_id"]:s for s in snapshots},"comparison":comparison}))
+    artifacts = {}
+    by_id = {row.id:row for row in rows}
+    for snapshot in snapshots:
+        cid=snapshot["candidate_id"]
+        bound={"candidate_id":cid,"revision":snapshot["revision"],"snapshot":snapshot,"snapshot_sha256":digest(snapshot)}
+        delivery=await delivery_graph.ainvoke({"binding":bound,"customers":[by_id[uid] for uid in arms[cid]],"budget":campaign.budget,"kind":"pilot"})
+        key=f"campaigns/{campaign.id}/experiments/{exp.id}/{cid}-{delivery['sha256'][:12]}.csv"
+        try:
+            await asyncio.to_thread(put_blob,key,delivery["blob"])
+        except (OSError, BotoCoreError, ClientError) as exc:
+            raise HTTPException(503,"Pilot storage unavailable") from exc
+        artifacts[cid]={"key":key,"sha256":delivery["sha256"],"row_count":len(arms[cid]),"trace":delivery["trace"]}
+    db.add(ExperimentBinding(experiment_id=exp.id, data={
+        "bound_at": datetime.now(timezone.utc).isoformat(),
+        "snapshots": {s["candidate_id"]: s for s in snapshots},
+        "comparison": comparison,
+        "pilot_artifacts": artifacts,
+        "require_finalized": data.require_finalized,
+    }))
     await db.commit()
     return {"id": exp.id, "arms": arms, "status": exp.status}
+
+
+@router.get("/{eid}/arms/{candidate_id}/download")
+async def download_arm(eid: str, candidate_id: str, db=Depends(session_dep)):
+    binding=await db.get(ExperimentBinding,eid)
+    artifact=(binding.data.get("pilot_artifacts",{}) if binding else {}).get(candidate_id)
+    if not artifact:
+        raise HTTPException(404,"Pilot artifact not found")
+    body=await asyncio.to_thread(get_verified_blob,SimpleNamespace(**artifact))
+    return Response(body,media_type="text/csv",headers={"Content-Disposition":f'attachment; filename="pilot-{candidate_id}.csv"',"X-Content-SHA256":artifact["sha256"]})
 
 
 @router.post("/{eid}/feedback")
@@ -107,10 +142,51 @@ async def report(eid: str, db=Depends(session_dep)):
             "note": "描述性转化率，不代表统计显著性；使用模拟回流，必须人工选择胜出方案。"}
 
 
-@router.post("/{eid}/promote")
-async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Body(default=None), db=Depends(session_dep)):
+class FinalizeInput(InputModel):
+    simulation_reason: str | None = Field(default=None, min_length=3, max_length=1000)
+
+
+@router.post("/{eid}/finalize")
+async def finalize_experiment(eid: str, data: FinalizeInput, db=Depends(session_dep)):
     exp = await locked(db, eid)
+    binding = await db.get(ExperimentBinding, eid)
+    if not binding:
+        raise HTTPException(409, "Experiment has no frozen version binding")
+    if exp.status in ("FINALIZED", "PROMOTED") and binding.data.get("finalize_result"):
+        return binding.data["finalize_result"]
     if exp.status != "RUNNING":
+        raise HTTPException(409, "Experiment is not running")
+    from datetime import timedelta
+    bound_at = datetime.fromisoformat(binding.data["bound_at"])
+    snapshots = binding.data["snapshots"]
+    days = max(((s.get("plan_data") or {}).get("strategy") or {}).get("ab_experiment", {}).get("window_days", 7) for s in snapshots.values())
+    now = datetime.now(timezone.utc)
+    early = now < bound_at + timedelta(days=days)
+    if early and not data.simulation_reason:
+        raise HTTPException(409, "Observation window is not over; explicit simulation reason required")
+    counts = dict((await db.execute(select(Conversion.arm, func.count()).where(
+        Conversion.experiment_id == eid).group_by(Conversion.arm))).all())
+    arms = [{"candidate_id": cid, "assigned": len(users), "converted": counts.get(cid, 0),
+             "rate": counts.get(cid, 0) / len(users)} for cid, users in exp.arms.items()]
+    ranked = sorted(arms, key=lambda a: a["rate"], reverse=True)
+    recommended = ranked[0]["candidate_id"] if ranked[0]["rate"] > ranked[1]["rate"] else None
+    result = {"finalized_at": now.isoformat(), "window_days": days, "early_simulation": early,
+              "simulation_reason": data.simulation_reason, "arms": arms, "recommended_candidate_id": recommended,
+              "note": "Descriptive conversion per assigned synthetic user; no significance or causal claim."}
+    binding.data = {**binding.data, "finalize_result": result}
+    exp.status = "FINALIZED"
+    await emit(db, exp.campaign_id, "experiment.finalized", {"experiment_id": eid, "early_simulation": early})
+    return result
+
+
+@router.post("/{eid}/promote")
+async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Body(default=None), require_finalized: bool = False, db=Depends(session_dep)):
+    exp = await locked(db, eid)
+    binding = await db.get(ExperimentBinding, eid)
+    requires_settlement = require_finalized or (binding is not None and binding.data.get("require_finalized", False))
+    if requires_settlement and exp.status == "RUNNING":
+        raise HTTPException(409, "Finalize the experiment before promotion")
+    if exp.status not in ("RUNNING", "FINALIZED"):
         if exp.winner == candidate_id:
             return {"winner": exp.winner, "status": exp.status}
         raise HTTPException(409, "Experiment already promoted")
@@ -121,7 +197,6 @@ async def promote(eid: str, candidate_id: str, data: PromotionInput | None = Bod
     campaign = await require_campaign(db, exp.campaign_id)
     if campaign.status != "WAITING_APPROVAL":
         raise HTTPException(409, "Campaign already advanced")
-    binding=await db.get(ExperimentBinding,eid)
     candidate=await db.get(Candidate,candidate_id)
     snapshot=binding.data['snapshots'][candidate_id] if binding else await checked_snapshot(db,candidate)
     await bind_decision(db,campaign,snapshot,'experiment:'+eid,data.decision_reason if data else None)

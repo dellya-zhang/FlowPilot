@@ -57,6 +57,10 @@ async def lifespan(app: FastAPI):
                                      region=("north", "south", "east", "west")[(i - 1) % 4],
                                      consent=(i % 9 != 0)) for i in range(1, 501)])
                 await db.commit()
+            from app.services.retail import seed_retail
+            await seed_retail(db)
+            from app.services.audience_index import seed_index
+            await seed_index(db)
     finally:
         await asyncio.to_thread(init_lock.release)
 
@@ -138,6 +142,8 @@ from app.api.knowledge import router as knowledge_router
 app.include_router(knowledge_router)
 from app.api.operations import router as operations_router
 app.include_router(operations_router)
+from app.api.retail import router as retail_router
+app.include_router(retail_router)
 
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")

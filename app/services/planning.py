@@ -7,7 +7,7 @@ import hashlib
 import math
 import random
 from sqlalchemy import select
-from app.models.entities import Customer, PlanningContext, AudienceSnapshot
+from app.models.entities import Customer, PlanningContext, AudienceSnapshot, RetailProfile
 from app.schemas.contracts import PlanningInput
 from app.services.rules import evaluate
 from app.services.strategy_design import enrich_strategy
@@ -39,6 +39,10 @@ def audience_rules(audience, data=None):
         rules.append({'field': 'segment', 'op': 'eq', 'value': audience})
     if data and data.get('region', 'all') != 'all':
         rules.append({'field': 'region', 'op': 'eq', 'value': data['region']})
+    if data and data.get("min_days_since_purchase",0):
+        rules.append({"field":"days_since_purchase","op":"gte","value":data["min_days_since_purchase"]})
+    if data and data.get("min_lifetime_spend_cny",0):
+        rules.append({"field":"lifetime_spend_cents","op":"gte","value":data["min_lifetime_spend_cny"]*100})
     return rules
 
 
@@ -51,8 +55,17 @@ async def audience_pool(db, campaign, *, ignore_snapshot=False):
         return restore("eligible"), restore("holdout")
     data = await planning_input(db, campaign.id)
     rules = audience_rules(campaign.audience, data)
-    rows = list((await db.scalars(select(Customer).order_by(Customer.id))).all())
-    eligible = [c for c in rows if all(evaluate(r, {'consent':c.consent, 'segment':c.segment, 'region':c.region}) for r in rules)]
+    from app.services.audience_index import select_ids
+    ids=await select_ids(campaign.audience,data)
+    stmt=select(Customer).order_by(Customer.id)
+    if ids is not None:stmt=stmt.where(Customer.id.in_(ids))
+    rows = list((await db.scalars(stmt)).all())
+    profiles={p.customer_id:p for p in (await db.scalars(select(RetailProfile).where(RetailProfile.customer_id.in_([c.id for c in rows])))).all()}
+    def context(c):
+        p=profiles.get(c.id)
+        return {"consent":c.consent,"segment":c.segment,"region":c.region,
+                **({"days_since_purchase":p.days_since_purchase,"lifetime_spend_cents":p.lifetime_spend_cents} if p else {})}
+    eligible = [c for c in rows if all(evaluate(r,context(c)) for r in rules)]
     holdout = []
     if data and data['enable_holdout']:
         shuffled = list(eligible)
@@ -96,5 +109,7 @@ async def freeze_audience(db, campaign):
     eligible, holdout = await audience_pool(db, campaign, ignore_snapshot=True)
     def rows(items):
         return [{'id':c.id,'segment':c.segment,'region':c.region,'consent':True} for c in items]
-    db.add(AudienceSnapshot(campaign_id=campaign.id,data={'eligible':rows(eligible),'holdout':rows(holdout)}))
+    from app.core.config import get_settings
+    db.add(AudienceSnapshot(campaign_id=campaign.id,data={'eligible':rows(eligible),'holdout':rows(holdout),
+        'query_engine':'clickhouse+sql_consent' if get_settings().clickhouse_url else 'sql'}))
     await db.flush()

@@ -43,6 +43,8 @@ def check(browser,url,label):
     page.wait_for_function("() => document.getElementById('evaluationSummary').textContent.includes('耗时差 -2')")
     page.click('#experiment')
     page.wait_for_selector('.experiment-arm')
+    page.locator('#experimentView textarea').first.fill('浏览器验收模拟提前结算')
+    page.get_by_role('button',name='结算实验').click()
     page.get_by_role('button',name='人工选为胜出方案').first.click()
     page.wait_for_function("() => !document.getElementById('finalize').disabled")
     page.click('#finalize')

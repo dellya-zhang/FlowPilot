@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse, Response
@@ -16,7 +17,7 @@ from app.services.planning import planning_input, missing_inputs, audience_pool,
 from app.services.strategy_design import variants
 from app.services.versions import checked_snapshot, bind_decision
 from app.services.limiter import limit
-from app.services.support import history
+from app.services.support import history, audit_history
 from app.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1")
@@ -195,10 +196,26 @@ async def pilot(campaign_id: str, db: AsyncSession = Depends(session_dep)):
         raise HTTPException(409, "Approve a candidate before pilot export")
     if await db.scalar(select(Experiment.id).where(Experiment.campaign_id == campaign_id)):
         raise HTTPException(409, "Experiment cohorts already define the pilot; no separate pilot export")
+    if campaign.status == "COMPLETED" and not await db.scalar(select(Artifact.id).where(Artifact.campaign_id == campaign_id, Artifact.kind == "pilot")):
+        raise HTTPException(409, "Cannot create a new pilot after full delivery")
     artifact = await export_audience(db, campaign, "pilot")
     if campaign.status == "PILOT_READY":
         campaign.status = "PILOT_EXPORTED"
     await emit(db, campaign_id, "pilot.exported", {"artifact_id": artifact.id, "rows": artifact.row_count})
+    return artifact
+
+
+@router.post("/campaigns/{campaign_id}/full", response_model=ArtifactView)
+async def full_delivery(campaign_id: str, db: AsyncSession = Depends(session_dep)):
+    """Ordinary approved plan -> full; experiment winner -> remaining audience."""
+    await db.execute(update(Campaign).where(Campaign.id == campaign_id).values(updated_at=Campaign.updated_at))
+    campaign = await require_campaign(db, campaign_id)
+    experiment = await db.scalar(select(Experiment).where(Experiment.campaign_id == campaign_id))
+    if campaign.status not in ("PILOT_READY", "PILOT_EXPORTED", "COMPLETED") or (experiment and experiment.status != "PROMOTED"):
+        raise HTTPException(409, "Approve a plan or promote an experiment winner first")
+    artifact = await export_audience(db, campaign, "full")
+    campaign.status = "COMPLETED"
+    await emit(db, campaign_id, "campaign.completed", {"artifact_id": artifact.id, "rows": artifact.row_count})
     return artifact
 
 
@@ -236,18 +253,86 @@ async def download(artifact_id: str, db: AsyncSession = Depends(session_dep)):
 
 
 @router.post("/support/sessions", status_code=201)
-async def new_support_session(db: AsyncSession = Depends(session_dep)):
+async def new_support_session(member_id: int | None = Query(None,ge=1,le=500), db: AsyncSession = Depends(session_dep)):
+    from app.models.entities import RetailSession, RetailProfile
+    if member_id is not None and not await db.get(RetailProfile,member_id):
+        raise HTTPException(404,"Synthetic member not found")
     session = SupportSession()
     db.add(session)
+    await db.flush()
+    if member_id is not None:db.add(RetailSession(session_id=session.id,customer_id=member_id))
     await db.commit()
-    return {"session_id": session.id, "status": session.status}
+    return {"session_id": session.id, "status": session.status,"member_id":member_id}
 
 
 @router.post("/support/sessions/{session_id}/messages", response_model=SupportDecision)
 async def support_message(session_id: str, data: SupportMessageInput, request: Request,
                           db: AsyncSession = Depends(session_dep)):
     await limit(request, "support", 30)
-    return await send_message(db, session_id, data.content)
+    return await run_support_turn(db, session_id, data, request)
+
+
+async def run_support_turn(db, session_id, data, request, on_node=None):
+    if not data.use_model or get_settings().ai_provider == "mock":
+        return await send_message(db, session_id, data.content, on_node=on_node)
+    slots=request.app.state.model_slots
+    try:
+        await asyncio.wait_for(slots.acquire(), timeout=0.2)
+    except TimeoutError:
+        raise HTTPException(429, "Model capacity reached")
+    try:
+        return await asyncio.wait_for(send_message(db, session_id, data.content, True, on_node=on_node), timeout=get_settings().support_timeout_seconds)
+    except TimeoutError:
+        await db.rollback()
+        raise HTTPException(504, "Support model timed out; retry without model")
+    finally:
+        slots.release()
+
+
+@router.post("/support/sessions/{session_id}/messages/stream")
+async def support_message_stream(session_id: str, data: SupportMessageInput, request: Request):
+    await limit(request, "support", 30)
+    async with SessionLocal() as db:
+        if await db.get(SupportSession, session_id) is None:
+            raise HTTPException(404, "Support session not found")
+
+    async def events():
+        queue = asyncio.Queue()
+
+        async def run():
+            try:
+                async with SessionLocal() as db:
+                    result = await run_support_turn(
+                        db, session_id, data, request,
+                        on_node=lambda node: queue.put_nowait(("node", {"node": node})),
+                    )
+                queue.put_nowait(("complete", result.model_dump(mode="json")))
+            except HTTPException as exc:
+                queue.put_nowait(("error", {"status": exc.status_code, "detail": exc.detail}))
+            except Exception as exc:
+                logging.getLogger(__name__).error("Support stream failed: %s", type(exc).__name__)
+                queue.put_nowait(("error", {"status": 500, "detail": "Support turn failed"}))
+
+        def frame(event, payload):
+            return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+        yield frame("received", {"session_id": session_id})
+        task = asyncio.create_task(run())
+        try:
+            while True:
+                try:
+                    event, payload = await asyncio.wait_for(queue.get(), timeout=10)
+                except TimeoutError:
+                    yield ": keep-alive\n\n"
+                    continue
+                yield frame(event, payload)
+                if event in ("complete", "error"):
+                    break
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/support/sessions/{session_id}/confirm", response_model=SupportDecision)
@@ -255,6 +340,19 @@ async def support_confirm(session_id: str, approved: bool, db: AsyncSession = De
     return await confirm_action(db, session_id, approved)
 
 
+@router.get("/support/sessions/{session_id}")
+async def support_session_status(session_id: str, db: AsyncSession = Depends(session_dep)):
+    session = await db.get(SupportSession, session_id)
+    if session is None:
+        raise HTTPException(404, "Support session not found")
+    return {"session_id": session.id, "session_status": session.status, "needs_confirmation": bool(session.pending_action)}
+
+
 @router.get("/support/sessions/{session_id}/messages")
 async def support_history(session_id: str, db: AsyncSession = Depends(session_dep)):
     return await history(db, session_id)
+
+
+@router.get("/support/sessions/{session_id}/audit")
+async def support_audit(session_id: str, db: AsyncSession = Depends(session_dep)):
+    return await audit_history(db,session_id)

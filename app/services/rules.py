@@ -1,4 +1,5 @@
 from typing import Any
+import re
 
 OPS = {
     "eq": lambda a,b: a == b,
@@ -24,6 +25,14 @@ def evaluate(rule: dict, context: dict[str, Any]) -> bool:
         return False
 
 
+PERSONAL_INFORMATION = re.compile(
+    r"(?<!\d)1[3-9]\d{9}(?!\d)"
+    r"|(?<![0-9])\d{17}[0-9Xx](?![0-9A-Za-z])"
+    r"|(?<!\d)\d{16,19}(?!\d)"
+    r"|(?<!\w)[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?!\w)"
+)
+
+
 def check_marketing(message: str, budget: int) -> list[str]:
     issues = []
     if budget > 100_000:
@@ -31,4 +40,6 @@ def check_marketing(message: str, budget: int) -> list[str]:
     for token in ("保证收益", "百分百中奖", "无需同意"):
         if token in message:
             issues.append("prohibited_claim")
+    if PERSONAL_INFORMATION.search(message):
+        issues.append("possible_personal_information")
     return issues

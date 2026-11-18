@@ -1,78 +1,99 @@
-"""Deterministic support orchestration with evidence-bearing read tools.
-No LLM is allowed to authorize a business write.
-"""
+"""Session transaction boundary for the customer-support graph."""
+from contextlib import aclosing
+
 from fastapi import HTTPException
 from sqlalchemy import select, update
-from app.models.entities import SupportSession, SupportMessage
+from app.models.entities import SupportSession, SupportMessage, SupportAudit
 from app.schemas.contracts import SupportDecision
-
-FAQ = [
-    ("退款", "refund_policy", "退款需提交订单信息并由人工审核，本演示不执行资金操作。"),
-    ("会员", "membership_policy", "会员权益以活动说明为准；本演示不售卖会员。"),
-    ("物流", "shipping_policy", "物流状态需以订单系统返回为准；本演示未接入真实物流。"),
-]
-
+from app.agents.support import support_graph
 
 async def history(db, session_id):
     if not await db.get(SupportSession, session_id):
         raise HTTPException(404, "Support session not found")
     rows = (await db.scalars(select(SupportMessage).where(
-        SupportMessage.session_id == session_id).order_by(SupportMessage.id.desc()).limit(200))).all()
+        SupportMessage.session_id == session_id).order_by(SupportMessage.id.desc()).limit(50))).all()
     return [{"role": r.role, "content": r.content} for r in reversed(rows)]
 
+async def audit_history(db, session_id):
+    if not await db.get(SupportSession, session_id):
+        raise HTTPException(404, "Support session not found")
+    rows = (await db.scalars(select(SupportAudit).where(SupportAudit.session_id == session_id)
+                           .order_by(SupportAudit.id.desc()).limit(50))).all()
+    return [{"id": row.id, **row.data} for row in reversed(rows)]
 
-async def send_message(db, session_id: str, content: str) -> SupportDecision:
-    # Serialize a conversation turn, including confirmations, in the database.
-    await db.execute(update(SupportSession).where(SupportSession.id == session_id).values(
-        status=SupportSession.status))
+async def locked_session(db, session_id):
+    await db.execute(update(SupportSession).where(SupportSession.id == session_id).values(status=SupportSession.status))
     session = await db.get(SupportSession, session_id)
     if not session:
         raise HTTPException(404, "Support session not found")
-    db.add(SupportMessage(session_id=session_id, role="user", content=content))
-    text = content.strip().lower()
-    facts = []
-    if session.pending_action and text in ("确认", "好的", "是", "好", "confirm", "取消", "不", "cancel"):
-        return await _confirm(db, session, text not in ("取消", "不", "cancel"))
-    if session.pending_action:
-        intent, reply = "confirmation", "存在待确认的退款审核申请，请先确认或取消，避免覆盖待执行操作。"
-    elif text in ("我想退", "帮我处理", "这个怎么办"):
-        intent, reply = "clarify", "请说明要处理的对象：订单退款、会员咨询，还是物流查询？"
-    elif any(w in text for w in ("不退款", "不要退款", "不想退款", "不用退款", "不需要退款", "不申请退款", "do not refund", "don't refund", "no refund")):
-        intent, reply = "clarify", "未提交退款审核申请。如需查询政策或订单，请说明具体问题。"
-    elif any(w in text for w in ("退款", "refund", "退钱")) and any(w in text for w in ("我要", "我想", "申请", "帮我", "给我", "please refund", "want a refund", "request a refund")) and not any(w in text for w in ("政策", "规则", "条件", "是什么", "怎么", "如何", "能否", "可以吗", "policy", "how", "can i")):
-        intent = "refund"
-        session.status = "WAITING_CONFIRMATION"
-        session.pending_action = {"type": "refund_review", "requested_text": content[:200]}
-        reply = "是否确认提交退款人工审核申请？本演示不执行真实退款。"
-    elif any(w in text for w in ("订单", "order")):
-        intent = "order_lookup"
-        facts = [{"source": "demo_order_tool", "fact": "当前未连接真实订单服务，无法查询个人订单。"}]
-        reply = facts[0]["fact"]
-    else:
-        intent = "faq"
-        facts = [{"source": source, "fact": answer} for keyword, source, answer in FAQ if keyword in text]
-        reply = "\n".join(f["fact"] for f in facts) or "我可以协助订单查询、退款审核申请和会员政策咨询，请描述具体问题。"
-    db.add(SupportMessage(session_id=session_id, role="assistant", content=reply))
+    return session
+
+async def record(db, session, reply, intent, decision, facts=None, citations=None):
+    db.add(SupportMessage(session_id=session.id, role="assistant", content=reply))
+    db.add(SupportAudit(session_id=session.id, data={"intent":intent,"decision":decision,
+        "citations":citations or [],"needs_confirmation":bool(session.pending_action)}))
     await db.commit()
-    return SupportDecision(reply=reply, intent=intent, needs_confirmation=bool(session.pending_action),
-                           session_status=session.status, facts=facts)
+    return SupportDecision(reply=reply,intent=intent,needs_confirmation=bool(session.pending_action),
+        session_status=session.status,facts=facts or [],citations=citations or [],decision=decision)
 
+async def send_message(db, session_id, content, use_model=False, on_node=None):
+    session = await locked_session(db, session_id)
+    db.add(SupportMessage(session_id=session_id,role="user",content=content))
+    from app.services.retail import retail_identity
+    customer_id=await retail_identity(db,session_id)
+    recent=await history(db,session_id) if customer_id is not None and use_model else []
+    refund_order_followup = False
+    if customer_id is not None and not session.pending_action:
+        from app.agents.retail_tools import order_id
+        order = order_id(content)
+        if order and content.strip().upper() == order:
+            previous = await db.scalar(select(SupportAudit).where(
+                SupportAudit.session_id == session_id).order_by(SupportAudit.id.desc()).limit(1))
+            if previous and previous.data.get("intent") == "refund":
+                trace = previous.data.get("decision", {}).get("trace", [])
+                refund_order_followup = any(item.get("node") == "refund_order_required" for item in trace)
+    inputs = {"content":content,"pending":session.pending_action,
+        "use_model":use_model,"trace":[],"customer_id":customer_id,"db":db,"history":recent,
+        "refund_order_followup":refund_order_followup}
+    if on_node is None:
+        result = await support_graph.ainvoke(inputs)
+    else:
+        async with aclosing(support_graph.astream(inputs, stream_mode=["updates", "values"])) as stream:
+            async for mode, value in stream:
+                if mode == "values":
+                    result = value
+                else:
+                    for node in value:
+                        on_node(node)
+    if result.get("confirmation") in ("confirm","cancel"):
+        return await _confirm(db,session,result["confirmation"]=="confirm",result["trace"])
+    if result.get("pending_next"):
+        session.pending_action=result["pending_next"]
+        session.status="WAITING_CONFIRMATION"
+    decision={"screening":result["screening"],"rule":result.get("rule"),"trace":result["trace"],"tools":result.get("tools",[]),"mode":result.get("mode","rule") }
+    return await record(db,session,result["reply"],result["intent"],decision,result.get("facts"),result.get("citations"))
 
-async def _confirm(db, session, approved):
+async def _confirm(db, session, approved, trace=None):
     if session.status != "WAITING_CONFIRMATION" or not session.pending_action:
         raise HTTPException(409, "No action awaiting confirmation")
-    session.pending_action = None
-    session.status = "ESCALATED" if approved else "OPEN"
-    reply = "已记录人工审核申请（本地演示，无真实外部工单）。" if approved else "已取消申请，您可以继续咨询。"
-    db.add(SupportMessage(session_id=session.id, role="assistant", content=reply))
-    await db.commit()
-    return SupportDecision(reply=reply, intent="refund", needs_confirmation=False, session_status=session.status)
+    pending=session.pending_action
+    session.pending_action=None
+    session.status="ESCALATED" if approved else "OPEN"
+    if approved and pending.get("order_id"):
+        from app.services.retail import retail_identity, submit_refund
+        identity=await retail_identity(db,session.id)
+        ticket=await submit_refund(db,session.id,identity,pending["order_id"])
+        if not ticket:
+            session.status="OPEN"
+            reply="订单当前不符合审核条件，未创建工单。"
+        else:
+            reply=f"已提交本地退款审核工单 {ticket.id}；等待人工审核，未执行退款。"
+    elif approved:
+        reply="已记录人工审核申请（本地演示，无真实外部工单）。" if pending.get("type") in ("refund","refund_review") else "已记录人工处理诉求（本地演示，无真实外部工单）。"
+    else:
+        reply="已取消申请，您可以继续咨询。"
+    return await record(db,session,reply,"refund" if pending.get("type") in ("refund","refund_review") else pending.get("type","request"),
+        {"confirmation":"confirm" if approved else "cancel","rule":pending.get("decision"),"trace":trace or [{"node":"explicit_confirmation"}]})
 
-
-async def confirm_action(db, session_id: str, approved: bool) -> SupportDecision:
-    await db.execute(update(SupportSession).where(SupportSession.id == session_id).values(
-        status=SupportSession.status))
-    session = await db.get(SupportSession, session_id)
-    if not session:
-        raise HTTPException(404, "Support session not found")
-    return await _confirm(db, session, approved)
+async def confirm_action(db, session_id, approved):
+    return await _confirm(db,await locked_session(db,session_id),approved)

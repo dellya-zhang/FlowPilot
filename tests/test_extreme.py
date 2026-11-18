@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 from pathlib import Path
 import pytest
+from botocore.exceptions import ClientError
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 from app.main import app, lifespan
@@ -36,8 +37,13 @@ async def test_meaningless_input(content):
 
 
 @pytest.mark.asyncio
-async def test_storage_failure_rollback(monkeypatch):
-    def fail(*args): raise OSError('injected disk full / denied')
+@pytest.mark.parametrize("error", [
+    OSError("injected disk full"),
+    ClientError({"Error": {"Code": "403", "Message": "Forbidden"}}, "PutObject"),
+])
+async def test_storage_failure_rollback(monkeypatch, error):
+    def fail(*args):
+        raise error
     async with lifespan(app):
         async with AsyncClient(transport=ASGITransport(app=app,raise_app_exceptions=False),base_url='http://test') as c:
             path=await campaign(c);await approve(c,path)

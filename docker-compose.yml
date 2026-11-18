@@ -3,6 +3,9 @@ services:
     build: .
     ports: ["127.0.0.1:8000:8000"]
     environment:
+      # Keep service-to-service requests on the Compose network when the host uses a proxy.
+      NO_PROXY: &internal_no_proxy "localhost,127.0.0.1,postgres,redis,clickhouse,minio,${NO_PROXY:-},${no_proxy:-}"
+      no_proxy: *internal_no_proxy
       ACCESS_TOKEN: ${ACCESS_TOKEN:-}
       DATABASE_URL: postgresql+asyncpg://agent:agentpassword@postgres:5432/agent
       AI_PROVIDER: ${AI_PROVIDER:-mock}
@@ -10,9 +13,16 @@ services:
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
       LLM_MAX_CALLS: ${LLM_MAX_CALLS:-18}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-600}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      SUPPORT_TIMEOUT_SECONDS: ${SUPPORT_TIMEOUT_SECONDS:-90}
       LLM_BUDGET_CNY: ${LLM_BUDGET_CNY:-10}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_DATABASE: flowpilot
+      CLICKHOUSE_USER: flowpilot
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flowpilot_local}
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT_URL: http://minio:9000
       S3_ACCESS_KEY: demoaccess
@@ -23,6 +33,7 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_started}
       minio: {condition: service_started}
+      clickhouse: {condition: service_healthy}
     restart: unless-stopped
   postgres:
     image: postgres:16-alpine
@@ -34,8 +45,22 @@ services:
       retries: 20
   redis:
     image: redis:7-alpine
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    environment:
+      CLICKHOUSE_DB: flowpilot
+      CLICKHOUSE_USER: flowpilot
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flowpilot_local}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes: ["chdata:/var/lib/clickhouse"]
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "flowpilot", "--password", "${CLICKHOUSE_PASSWORD:-flowpilot_local}", "--query", "SELECT 1"]
+      interval: 5s
+      start_period: 30s
+      retries: 30
   minio:
-    image: minio/minio:RELEASE.2025-02-07T23-21-09Z
+    # Maintained MinIO-compatible distribution; the original Docker Hub image is gone.
+    image: ${S3_IMAGE:-docker.io/pgsty/silo:RELEASE.2026-11-12T00-00-00Z}
     command: server /data --console-address ":9001"
     environment: {MINIO_ROOT_USER: demoaccess, MINIO_ROOT_PASSWORD: demosecret}
     volumes: ["miniodata:/data"]
@@ -43,3 +68,4 @@ volumes:
   llm_audit:
   pgdata:
   miniodata:
+  chdata:

@@ -235,3 +235,61 @@ async def test_support_non_actionable_refund(content):
             assert response.status_code == 200
             assert response.json()["needs_confirmation"] is False
             assert (await client.post(f"/api/v1/support/sessions/{sid}/confirm?approved=true")).status_code == 409
+
+
+def test_support_policy_routing():
+    from app.services.support_policy import screen, decide
+    assert screen("好的")["branch"] == "query"
+    assert screen("好的", {"type": "refund"})["confirmation"] == "confirm"
+    assert screen("等一下", {"type": "refund"})["confirmation"] == "unclear"
+    assert decide(screen("我要退款"))["action"] == "confirm_with_user"
+    assert decide(screen("我要投诉商家"))["action"] == "handoff"
+    assert decide(screen("我要执行其他操作"))["fallback"] is True
+
+
+
+@pytest.mark.asyncio
+async def test_direct_full_delivery_and_late_pilot_guard():
+    async with lifespan(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            root = "/api/v1/campaigns"
+            cid = (await c.post(root, json={"brief": "介绍会员服务权益", "budget": 2000})).json()["id"]
+            path = f"{root}/{cid}"
+            assert (await c.post(path + "/full")).status_code == 409
+            assert (await c.post(path + "/generate")).status_code == 202
+            await __import__("asyncio").gather(*list(app.state.tasks))
+            x = (await c.get(path + "/candidates")).json()[0]
+            assert (await c.post(path + "/approve", json={"candidate_id": x["id"]})).status_code == 200
+            a = await c.post(path + "/full")
+            assert a.status_code == 200, a.text
+            assert a.json()["row_count"] > 0
+            assert (await c.post(path + "/full")).json()["id"] == a.json()["id"]
+            assert (await c.post(path + "/pilot")).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_experiment_finalization_and_feedback_freeze():
+    async with lifespan(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            root = "/api/v1/campaigns"
+            cid = (await c.post(root, json={"brief": "介绍会员服务权益", "budget": 2000})).json()["id"]
+            path = f"{root}/{cid}"
+            assert (await c.post(path + "/generate")).status_code == 202
+            await __import__("asyncio").gather(*list(app.state.tasks))
+            ids = [x["id"] for x in (await c.get(path + "/candidates")).json()[:2]]
+            exp = await c.post("/api/v1/experiments", json={"campaign_id": cid, "candidate_ids": ids, "require_finalized": True})
+            assert exp.status_code == 201, exp.text
+            eid = exp.json()["id"]
+            route = f"/api/v1/experiments/{eid}"
+            user = exp.json()["arms"][ids[0]][0]
+            feedback = {"event_id": eid + "-test", "customer_id": user, "candidate_id": ids[0]}
+            assert (await c.post(route + "/feedback", json=feedback)).status_code == 200
+            promote = route + "/promote?candidate_id=" + ids[0]
+            assert (await c.post(promote + "&require_finalized=false")).status_code == 409
+            assert (await c.post(route + "/finalize", json={})).status_code == 409
+            result = await c.post(route + "/finalize", json={"simulation_reason": "模拟提前结算"})
+            assert result.status_code == 200, result.text
+            assert result.json()["recommended_candidate_id"] == ids[0]
+            assert (await c.post(route + "/feedback", json=feedback)).status_code == 409
+            assert (await c.post(promote)).status_code == 200
+            assert (await c.post(path + "/full")).status_code == 200

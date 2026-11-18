@@ -8,6 +8,7 @@ import random
 from fastapi import HTTPException
 from sqlalchemy import select, delete, update
 from app.agents.marketing import marketing_graph
+from app.agents.materialize import delivery_graph
 from app.db.base import SessionLocal
 from app.models.entities import Campaign, Candidate, Event, Customer, Artifact, Experiment, CandidatePlan, PlanningContext, PlanRevision, DecisionBinding, ArtifactBinding
 from app.services.planning import planning_input, audience_pool, PlanNeedsClarification
@@ -17,7 +18,7 @@ from app.services.rules import check_marketing
 from app.services.strategy_design import variants
 from app.services.versions import current_snapshot, save_revision
 from app.services.storage import put_blob, get_verified_blob
-from botocore.exceptions import BotoCoreError
+from botocore.exceptions import BotoCoreError, ClientError
 from app.core.config import get_settings
 from app.services.leases import claim, fence, renew, release, LostLease
 
@@ -107,7 +108,7 @@ async def generate_candidates(campaign_id: str, gate=None):
                         db.add(CandidatePlan(candidate_id=cid, data=data["plan_data"]))
                         await db.flush()
                         await save_revision(db, await current_snapshot(db,candidate), "首次生成")
-                    await emit(db, campaign_id, "candidate.ready", {"variant": variant, "candidate_id": cid}, owner=owner)
+                    await emit(db, campaign_id, "candidate.ready", {"variant": variant, "candidate_id": cid,"model_receipt":(data.get("plan_data") or {}).get("generation_receipt")}, owner=owner)
                     successes += 1
             finally:
                 for child in children:
@@ -186,18 +187,20 @@ async def export_audience(db, campaign: Campaign, kind: str) -> Artifact:
         customers.sort(key=lambda c: c.id)
     decision=await db.get(DecisionBinding,campaign.id)
     binding=decision.data if decision else None
-    blob = generate_csv(customers,binding)
-    digest = hashlib.sha256(blob).hexdigest()
+    if not binding:
+        raise HTTPException(409, "Missing approved snapshot; approve a new plan")
+    delivery = await delivery_graph.ainvoke({"binding":binding,"customers":customers,"budget":campaign.budget,"kind":kind})
+    blob, digest = delivery["blob"], delivery["sha256"]
     key = f"campaigns/{campaign.id}/{kind}-{digest[:12]}.csv"
     try:
         await asyncio.to_thread(put_blob, key, blob)
-    except (OSError, BotoCoreError) as exc:
+    except (OSError, BotoCoreError, ClientError) as exc:
         raise HTTPException(503, "Artifact storage unavailable", headers={"Retry-After":"2"}) from exc
     artifact = Artifact(campaign_id=campaign.id, kind=kind, key=key, sha256=digest, row_count=len(customers))
     db.add(artifact)
     await db.flush()
     if binding:
-        artifact.binding={**binding,"exported_at":datetime.now(timezone.utc).isoformat(),"kind":kind,"audience_ids":[c.id for c in customers]}
+        artifact.binding={**binding,"exported_at":datetime.now(timezone.utc).isoformat(),"kind":kind,"audience_ids":[c.id for c in customers],"delivery_trace":delivery["trace"]}
         db.add(ArtifactBinding(artifact_id=artifact.id,data=artifact.binding))
     return artifact
 

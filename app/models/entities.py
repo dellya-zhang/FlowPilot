@@ -175,3 +175,47 @@ class ExecutionObservation(Base):
     contact_number: Mapped[int] = mapped_column(Integer,default=0)
     data: Mapped[dict] = mapped_column(JSON)
     __table_args__ = (UniqueConstraint("campaign_id", "candidate_id", "revision", "customer_id", "outcome", "contact_number"),)
+
+
+class SupportAudit(Base):
+    __tablename__ = "support_audits"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("support_sessions.id"), index=True)
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class RetailProfile(Base):
+    __tablename__ = "retail_profiles"
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), primary_key=True)
+    tier: Mapped[str] = mapped_column(String(16))
+    points: Mapped[int] = mapped_column(Integer)
+    days_since_purchase: Mapped[int] = mapped_column(Integer)
+    lifetime_spend_cents: Mapped[int] = mapped_column(Integer)
+
+
+class RetailOrder(Base):
+    __tablename__ = "retail_orders"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    item: Mapped[str] = mapped_column(String(100))
+    amount_cents: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(24))
+    logistics: Mapped[str] = mapped_column(String(100))
+
+
+class RetailSession(Base):
+    __tablename__ = "retail_sessions"
+    session_id: Mapped[str] = mapped_column(ForeignKey("support_sessions.id"), primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+
+
+class RetailTicket(Base):
+    __tablename__ = "retail_tickets"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("support_sessions.id"), index=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    order_id: Mapped[str] = mapped_column(ForeignKey("retail_orders.id"))
+    kind: Mapped[str] = mapped_column(String(24))
+    status: Mapped[str] = mapped_column(String(24), default="PENDING_REVIEW")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
