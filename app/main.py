@@ -59,6 +59,8 @@ async def lifespan(app: FastAPI):
                 await db.commit()
             from app.services.retail import seed_retail
             await seed_retail(db)
+            from app.services.audience_index import seed_index
+            await seed_index(db)
     finally:
         await asyncio.to_thread(init_lock.release)
 

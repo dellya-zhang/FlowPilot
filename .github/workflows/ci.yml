@@ -61,3 +61,18 @@ jobs:
         with:
           name: vue-browser-evidence
           path: vue-evidence/
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install httpx
+      - run: docker compose up --build -d
+      - run: python scripts/check_compose.py
+      - run: docker compose logs --no-color
+        if: failure()
+      - run: docker compose down -v
+        if: always()

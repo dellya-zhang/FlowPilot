@@ -55,8 +55,12 @@ async def audience_pool(db, campaign, *, ignore_snapshot=False):
         return restore("eligible"), restore("holdout")
     data = await planning_input(db, campaign.id)
     rules = audience_rules(campaign.audience, data)
-    rows = list((await db.scalars(select(Customer).order_by(Customer.id))).all())
-    profiles={p.customer_id:p for p in (await db.scalars(select(RetailProfile))).all()}
+    from app.services.audience_index import select_ids
+    ids=await select_ids(campaign.audience,data)
+    stmt=select(Customer).order_by(Customer.id)
+    if ids is not None:stmt=stmt.where(Customer.id.in_(ids))
+    rows = list((await db.scalars(stmt)).all())
+    profiles={p.customer_id:p for p in (await db.scalars(select(RetailProfile).where(RetailProfile.customer_id.in_([c.id for c in rows])))).all()}
     def context(c):
         p=profiles.get(c.id)
         return {"consent":c.consent,"segment":c.segment,"region":c.region,
@@ -105,5 +109,7 @@ async def freeze_audience(db, campaign):
     eligible, holdout = await audience_pool(db, campaign, ignore_snapshot=True)
     def rows(items):
         return [{'id':c.id,'segment':c.segment,'region':c.region,'consent':True} for c in items]
-    db.add(AudienceSnapshot(campaign_id=campaign.id,data={'eligible':rows(eligible),'holdout':rows(holdout)}))
+    from app.core.config import get_settings
+    db.add(AudienceSnapshot(campaign_id=campaign.id,data={'eligible':rows(eligible),'holdout':rows(holdout),
+        'query_engine':'clickhouse+sql_consent' if get_settings().clickhouse_url else 'sql'}))
     await db.flush()

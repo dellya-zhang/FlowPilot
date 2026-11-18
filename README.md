@@ -190,3 +190,7 @@ docs/          设计及验证记录
 本地启动 DeepSeek 模式后运行 `python scripts/live_retail.py --confirm-paid`。脚本提交新的营销需求、检查实际模型来源、运行客服原生工具循环并验证供应商响应 ID；不把 Mock 通过当成真实模型成功。默认 CI 不访问收费服务。模型额度由 .env 中 LLM_MAX_CALLS 与 LLM_BUDGET_CNY 控制，日志是保守上界而非实际账单。
 
 真实模型候选包含 `generation_receipt`（供应商响应 ID、模型、本地调用 ID、Token 数和延迟），同步写入候选事件。修订后保留原始生成凭据，但当前文案来源标记为 operator_revision。
+
+### ClickHouse 人群索引
+
+本地 Compose 增加 ClickHouse：启动时将合成会员画像投影到 ReplacingMergeTree，营销圈选通过参数化 HTTP SQL 查询人群 ID，再以 PostgreSQL 的当前同意状态与画像条件二次校验、冻结名单。SQLite 模式不依赖 ClickHouse。已配置的 ClickHouse 故障时返回 503 而非静默换引擎。当前仅启动时刷新静态合成索引，无 CDC 或真实数据同步。新增 Compose 集成 CI 验证 PostgreSQL、Redis 配置、ClickHouse 与 MinIO 的业务交付路径；以实际 CI 结果为准。

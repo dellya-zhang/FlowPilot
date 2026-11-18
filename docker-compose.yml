@@ -16,6 +16,10 @@ services:
       LLM_BUDGET_CNY: ${LLM_BUDGET_CNY:-10}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_DATABASE: flowpilot
+      CLICKHOUSE_USER: flowpilot
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flowpilot_local}
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT_URL: http://minio:9000
       S3_ACCESS_KEY: demoaccess
@@ -26,6 +30,7 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_started}
       minio: {condition: service_started}
+      clickhouse: {condition: service_healthy}
     restart: unless-stopped
   postgres:
     image: postgres:16-alpine
@@ -37,6 +42,18 @@ services:
       retries: 20
   redis:
     image: redis:7-alpine
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    environment:
+      CLICKHOUSE_DB: flowpilot
+      CLICKHOUSE_USER: flowpilot
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flowpilot_local}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes: ["chdata:/var/lib/clickhouse"]
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user flowpilot --password \"$CLICKHOUSE_PASSWORD\" --query 'SELECT 1'"]
+      interval: 5s
+      retries: 30
   minio:
     image: minio/minio:RELEASE.2025-02-07T23-21-09Z
     command: server /data --console-address ":9001"
@@ -46,3 +63,4 @@ volumes:
   llm_audit:
   pgdata:
   miniodata:
+  chdata:
