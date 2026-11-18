@@ -25,6 +25,8 @@ class MarketingState(TypedDict, total=False):
     score: int
     plan_data: dict
     trace: list[str]
+    compliance_retry: int
+    violations: list[str]
 
 
 async def understand_goal(state):
@@ -54,14 +56,15 @@ async def executor(state):
         return {'content_source':'operator_reference','outcome':'draft','title':plan['comparison']['axis_label']+' · '+plan['comparison']['value'],
                 'message':plan['planning_input']['reference_message'], 'reasoning':'固定运营确认文案，仅比较'+plan['comparison']['axis_label'],
                 'trace':state['trace']+['content_preview']}
-    output = await draft(state['brief'], state['audience'], state['variant'],
+    brief=state['brief']
+    if state.get('violations'):
+        brief += "\n上次文案合规未通过，请移除违规内容；不要增加任何未确认权益。检查类别：" + ",".join(state['violations'])
+    output = await draft(brief, state['audience'], state['variant'],
                          budget=state['budget'], plan=state['plan_data'])
     return {**output, 'content_source':get_settings().ai_provider, 'trace':state['trace']+['content_preview']}
 
 
 async def content_compliance(state):
-    if check_marketing(state['title']+'\n'+state['message'], state['budget']):
-        raise ValueError('Content blocked by demo policy')
     # Conservative refusal classification. Does not claim general semantic validation.
     if state.get('outcome') == 'clarification':
         raise PlanNeedsClarification('补充权益适用条件、渠道限制和目标后重试')
@@ -69,7 +72,13 @@ async def content_compliance(state):
         raise ValueError('Only draft output can become a candidate')
     if any(word in state['message'] for word in ('无法生成', '不能协助', '无法提供', '需要补充合法信息')):
         raise ValueError('Refusal is not an executable marketing plan')
-    return {'trace':state['trace']+['content_compliance']}
+    issues=check_marketing(state['title']+'\n'+state['message'],state['budget'])
+    if issues:
+        retries=state.get('compliance_retry',0)
+        if state.get('content_source')=='operator_reference' or retries>=2:
+            raise ValueError('Content blocked by demo policy')
+        return {'violations':issues,'compliance_retry':retries+1,'trace':state['trace']+['compliance_retry']}
+    return {'violations':[],'trace':state['trace']+['content_compliance']}
 
 
 async def critic(state):
@@ -91,7 +100,10 @@ def build_graph():
              ('content_preview',executor), ('content_compliance',content_compliance), ('plan_output',critic)]
     previous = START
     for name, fn in nodes:
-        builder.add_node(name, fn);builder.add_edge(previous,name);previous=name
+        builder.add_node(name, fn)
+        if previous != 'content_compliance':builder.add_edge(previous,name)
+        previous=name
+    builder.add_conditional_edges('content_compliance', lambda s: 'content_preview' if s.get('violations') else 'plan_output', ['content_preview','plan_output'])
     builder.add_edge(previous,END)
     return builder.compile()
 

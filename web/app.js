@@ -6,10 +6,19 @@ async function api(path,method='GET',body,extraHeaders={}){const r=await fetch('
 function el(tag,text,parent){const n=document.createElement(tag);n.textContent=text;parent.append(n);return n}function button(text,parent,fn){const b=el('button',text,parent);b.className='secondary';b.onclick=()=>guard(fn,b);return b}
 async function guard(fn,b){$('notice').textContent='';if(b?.dataset.busy)return;if(b)b.dataset.busy='1';const wasDisabled=b?.disabled;if(b)b.disabled=true;try{await fn()}catch(e){$('notice').textContent=e.message||'连接失败，请检查本地服务'}finally{if(b){delete b.dataset.busy;b.disabled=wasDisabled||false;}if(currentCampaign)syncControls(currentCampaign)}}
 let campaignRows=[];
-async function tasks(){campaignRows=await api('/campaigns');renderTasks()}
+async function tasks(){campaignRows=await api('/campaigns');renderTasks();renderCampaignList()}
 function renderTasks(){const rows=campaignRows.filter(c=>c.brief.toLowerCase().includes($('campaignSearch').value.trim().toLowerCase()));$('campaignSummary').textContent='待审批 '+campaignRows.filter(c=>c.status==='WAITING_APPROVAL').length+' · 已交付 '+campaignRows.filter(c=>c.status==='COMPLETED').length;$('taskCount').textContent=rows.length;$('tasks').replaceChildren();if(!rows.length)el('p','还没有计划，创建你的第一项任务。',$('tasks')).className='empty-small';for(const c of rows){const b=button('', $('tasks'),()=>select(c.id));b.className='task'+(c.id===cid?' active':'');el('span',c.brief,b).className='task-title';el('small',statuses[c.status]||c.status,b)}}
 
 $('campaignSearch').addEventListener('input',renderTasks);
+function renderCampaignList(){
+  const query=$('listSearch').value.trim().toLowerCase(),status=$('listStatus').value,body=$('listRows');
+  body.replaceChildren();
+  const rows=campaignRows.filter(c=>(!status||c.status===status)&&c.brief.toLowerCase().includes(query));
+  $('listEmpty').hidden=rows.length>0;
+  for(const c of rows){const tr=el('tr','',body);el('td',c.brief,tr);el('td',({all:'全部',new:'新会员',active:'活跃用户',dormant:'沉睡用户'})[c.audience]||c.audience,tr);el('td','¥'+c.budget,tr);el('td',statuses[c.status]||c.status,tr);const td=el('td','',tr);button('详情',td,async()=>{location.hash='marketing';await select(c.id)})}
+}
+$('listSearch').addEventListener('input',renderCampaignList);$('listStatus').addEventListener('change',renderCampaignList);
+window.addEventListener('hashchange',()=>{if(location.hash==='#campaigns')guard(tasks)});
 async function select(id){cid=id;exp=null;$('experimentView').replaceChildren();if(stream)stream.close();clearTimeout(streamRefreshTimer);await refresh();if(currentPlanning?.input)fillPlanningInput(currentPlanning.input);await renderExperiment();if(!token&&!window.FlowPilotDemo){stream=new EventSource('/api/v1/campaigns/'+id+'/stream');for(const name of ['candidate.ready','candidate.revised','candidate.failed','generation.finished','generation.failed','campaign.approved','pilot.exported','campaign.completed','operator.reviewed','execution.observed'])stream.addEventListener(name,scheduleStreamRefresh)}}
 async function refresh(){
   if(!cid)return;

@@ -1,16 +1,18 @@
 /* Task-oriented navigation shared by static preview and the Python workspace. */
 (() => {
   const byId = id => document.getElementById(id);
-  const views = ['overview', 'marketing', 'support', 'knowledge', 'settings'];
+  const views = ['overview', 'campaigns', 'marketing', 'support', 'knowledge', 'settings'];
   function showView(view) {
     if (!views.includes(view)) view = 'overview';
     document.body.dataset.view = view;
     const headings = {marketing:['营销计划','创建活动、审核方案并导出客户名单。'],support:['客服会话','查看政策、提出申请，再由你确认是否提交演示审核。'],knowledge:['政策知识库','检索本地政策，阅读原文引用；此入口不发起业务操作。'],settings:['模型设置','本地后端负责模型连接；在线演示使用浏览器模板。']};
+    headings.campaigns = ['活动管理','查询活动状态、进入审批与交付详情。'];
     headings.overview = ['FlowPilot 项目概览','会员营销、名单交付与客服审核申请。'];
     document.querySelector('.page-heading h1').textContent = headings[view][0];
     document.querySelector('.page-heading p').textContent = headings[view][1];
     byId('projectOverview').hidden = view !== 'overview';
-    byId('workspace').hidden = view === 'overview';
+    byId('campaignList').hidden = view !== 'campaigns';
+    byId('workspace').hidden = ['overview','campaigns'].includes(view);
     document.querySelectorAll('[data-view]').forEach(a => {
       a.classList.toggle('nav-active', a.dataset.view === view);
       if (a.dataset.view === view) a.setAttribute('aria-current', 'page');

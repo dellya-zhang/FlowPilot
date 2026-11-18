@@ -16,3 +16,5 @@ See README for startup. Navigate to / for marketing and /support.html for custom
 ## Remaining work
 
 Real customer sources, production identity/tenancy, external order and marketing integrations, node checkpoint/resume, full compliance retry/regeneration and infrastructure load verification are not implemented by this change. No enterprise source, internal URL or user data is included.
+
+Plan model text compliance retry: at most two re-generations, with violation categories rather than the rejected text in the retry prompt. Fixed operator reference text is blocked without rewriting. The materialization graph does not regenerate approved copy. Browser CI runs a real Mock API and Chromium, with screenshots as CI artifacts instead of updating checked-in screenshots before verification.
